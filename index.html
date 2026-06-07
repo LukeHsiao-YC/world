@@ -22,7 +22,9 @@
                             panel: '#1e293b',
                             accent: '#38bdf8',
                             warning: '#fbbf24',
-                            danger: '#f87171'
+                            danger: '#f87171',
+                            ally: '#34d399',
+                            similar: '#fb923c'
                         }
                     }
                 }
@@ -34,42 +36,73 @@
         body {
             background-color: #0f172a;
             color: #f8fafc;
-            overflow: hidden; /* Prevent body scroll */
+            overflow: hidden;
         }
         
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .loader {
+            border: 4px solid #1e293b;
+            border-top: 4px solid #38bdf8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         .country {
             fill: #334155;
             stroke: #0f172a;
             stroke-width: 0.5px;
-            transition: fill 0.3s, opacity 0.3s;
+            transition: fill 0.3s, stroke 0.3s, filter 0.3s;
             cursor: pointer;
         }
         
-        .country:hover {
-            fill: #475569;
-        }
+        .country:hover { fill: #475569; }
         
-        /* Top 30 Countries default style */
         .country.top-30 {
             fill: #1e3a8a;
             stroke: #60a5fa;
             stroke-width: 0.5px;
         }
-        
         .country.top-30:hover {
             fill: #3b82f6;
             filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.8));
         }
 
-        /* Selected Country */
+        /* Highlight classes */
         .country.selected {
             fill: #38bdf8 !important;
             stroke: #fff !important;
             stroke-width: 1.5px !important;
             filter: drop-shadow(0 0 8px rgba(56, 189, 248, 1));
+            z-index: 10;
         }
 
-        /* Tooltip */
+        .country.ally {
+            fill: #064e3b !important; 
+            stroke: #34d399 !important; 
+            stroke-width: 1.2px !important;
+            filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.6));
+        }
+
+        .country.similar {
+            fill: #451a03 !important; 
+            stroke: #fb923c !important; 
+            stroke-width: 1.2px !important;
+            filter: drop-shadow(0 0 4px rgba(251, 146, 60, 0.6));
+        }
+
         #tooltip {
             position: absolute;
             opacity: 0;
@@ -83,62 +116,33 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
             transition: opacity 0.2s;
         }
-
-        /* Scrollbar styling for panel */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1e293b; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #475569; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #64748b; 
-        }
-
-        /* Glassmorphism effects */
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.85);
-            backdrop-filter: blur(12px);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Loading spinner */
-        .loader {
-            border: 4px solid #1e293b;
-            border-top: 4px solid #38bdf8;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col md:flex-row">
 
-    <!-- Loading Screen -->
     <div id="loading" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-brand-dark">
         <div class="loader mb-4"></div>
         <h2 class="text-xl font-semibold text-brand-accent animate-pulse">載入全球戰略圖資中...</h2>
     </div>
 
-    <!-- Tooltip -->
     <div id="tooltip"></div>
 
-    <!-- Main Map Area -->
     <div class="relative flex-1 h-[60vh] md:h-screen w-full overflow-hidden flex flex-col">
-        <!-- Header -->
         <header class="absolute top-0 left-0 right-0 p-4 z-10 pointer-events-none flex justify-between items-start">
-            <div class="pointer-events-auto bg-brand-dark/80 backdrop-blur-md p-3 rounded-lg border border-slate-700 shadow-lg">
-                <h1 class="text-xl md:text-2xl font-bold text-white tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-globe text-brand-accent"></i>
-                    大國博弈戰略地圖
-                </h1>
-                <p class="text-xs text-slate-400 mt-1">互動式地圖：可拖曳、縮放。點擊發光國家查看分析</p>
+            <div class="pointer-events-auto flex flex-col gap-2">
+                <div class="bg-brand-dark/80 backdrop-blur-md p-3 rounded-lg border border-slate-700 shadow-lg">
+                    <h1 class="text-xl md:text-2xl font-bold text-white tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-globe text-brand-accent"></i>
+                        大國博弈戰略地圖
+                    </h1>
+                    <p class="text-xs text-slate-400 mt-1">點擊發光國家，查看戰略數據與關係網。</p>
+                </div>
+                <!-- Map Legend -->
+                <div class="bg-brand-dark/80 backdrop-blur-md p-2 rounded-lg border border-slate-700 shadow-lg flex gap-3 text-xs w-max">
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-[#38bdf8] rounded-full inline-block shadow-[0_0_5px_#38bdf8]"></span> 關注目標</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-[#064e3b] border border-[#34d399] rounded-full inline-block"></span> 戰略盟友</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-[#451a03] border border-[#fb923c] rounded-full inline-block"></span> 相似/競爭</div>
+                </div>
             </div>
             
             <div class="pointer-events-auto flex gap-2">
@@ -148,56 +152,68 @@
             </div>
         </header>
 
-        <!-- D3 Map Container -->
         <div id="map" class="w-full h-full bg-[#020617] cursor-grab active:cursor-grabbing"></div>
     </div>
 
-    <!-- Info Panel (Right sidebar on desktop, bottom sheet/modal on mobile) -->
-    <div id="info-panel" class="glass-panel absolute md:relative bottom-0 left-0 right-0 md:w-[400px] lg:w-[450px] h-[45vh] md:h-screen transform translate-y-full md:translate-y-0 transition-transform duration-300 ease-in-out z-40 overflow-y-auto flex flex-col border-t md:border-t-0 shadow-2xl">
-        
-        <!-- Mobile close/drag handle -->
+    <div id="info-panel" class="glass-panel absolute md:relative bottom-0 left-0 right-0 md:w-[400px] lg:w-[480px] h-[50vh] md:h-screen transform translate-y-full md:translate-y-0 transition-transform duration-300 ease-in-out z-40 overflow-y-auto flex flex-col border-t md:border-t-0 shadow-2xl">
         <div class="md:hidden w-full flex justify-center py-2 cursor-pointer" id="close-panel-btn">
             <div class="w-12 h-1.5 bg-slate-500 rounded-full"></div>
         </div>
 
-        <div id="panel-content" class="p-6 flex-1 hidden flex-col gap-6">
+        <div id="panel-content" class="p-6 flex-1 hidden flex-col gap-5">
             <!-- Header Section -->
-            <div class="border-b border-slate-700 pb-4">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <span id="country-continent" class="text-xs font-semibold text-brand-accent uppercase tracking-widest bg-brand-accent/10 px-2 py-1 rounded"></span>
-                        <h2 id="country-name" class="text-3xl font-bold mt-2 text-white"></h2>
+            <div class="border-b border-slate-700 pb-3 flex justify-between items-start">
+                <div>
+                    <span id="country-continent" class="text-xs font-semibold text-brand-accent uppercase tracking-widest bg-brand-accent/10 px-2 py-1 rounded"></span>
+                    <h2 id="country-name" class="text-3xl font-bold mt-2 text-white"></h2>
+                </div>
+                <div class="flex flex-col gap-2 text-right">
+                    <div class="bg-slate-800 px-2 py-1 rounded border border-slate-600">
+                        <span class="text-[10px] text-slate-400 block leading-none mb-1">經濟排名</span>
+                        <div class="text-xl font-bold text-white leading-none">No.<span id="country-gdp-rank"></span></div>
                     </div>
-                    <div class="text-right">
-                        <span class="text-xs text-slate-400">軍力排名</span>
-                        <div id="country-military" class="text-2xl font-bold text-brand-warning"></div>
+                    <div class="bg-brand-warning/10 px-2 py-1 rounded border border-brand-warning/30">
+                        <span class="text-[10px] text-brand-warning/80 block leading-none mb-1">軍力排名</span>
+                        <div class="text-xl font-bold text-brand-warning leading-none">No.<span id="country-military"></span></div>
                     </div>
                 </div>
             </div>
 
             <!-- Stats Grid -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-users mr-1"></i>總人口</div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-slate-800/50 p-2 rounded border border-slate-700">
+                    <div class="text-xs text-slate-400"><i class="fa-solid fa-users mr-1"></i>總人口</div>
                     <div id="country-pop" class="font-semibold text-sm"></div>
                 </div>
-                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-sack-dollar mr-1"></i>GDP</div>
+                <div class="bg-slate-800/50 p-2 rounded border border-slate-700">
+                    <div class="text-xs text-slate-400"><i class="fa-solid fa-sack-dollar mr-1"></i>GDP</div>
                     <div id="country-gdp" class="font-semibold text-sm"></div>
                 </div>
-                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-coins mr-1"></i>人均 GNI</div>
+                <div class="bg-slate-800/50 p-2 rounded border border-slate-700">
+                    <div class="text-xs text-slate-400"><i class="fa-solid fa-coins mr-1"></i>人均 GNI</div>
                     <div id="country-gni" class="font-semibold text-sm"></div>
                 </div>
-                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>國家債務比</div>
+                <div class="bg-slate-800/50 p-2 rounded border border-slate-700">
+                    <div class="text-xs text-slate-400"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>國家債務比</div>
                     <div id="country-debt" class="font-semibold text-sm text-brand-danger"></div>
                 </div>
             </div>
 
+            <!-- Relations (Allies & Similar) -->
+            <div class="flex flex-col gap-3">
+                <div>
+                    <span class="text-xs font-semibold text-brand-ally mb-1 block"><i class="fa-solid fa-handshake mr-1"></i>緊密戰略夥伴</span>
+                    <div id="country-allies" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-brand-similar mb-1 block"><i class="fa-solid fa-industry mr-1"></i>產業結構相近 / 競爭國</span>
+                    <div id="country-similar" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+
             <!-- Core Industry -->
-            <div class="bg-brand-accent/5 border border-brand-accent/20 p-4 rounded-lg">
-                <h3 class="text-sm font-semibold text-brand-accent mb-2"><i class="fa-solid fa-microchip mr-2"></i>核心產業與技術</h3>
+            <div class="bg-brand-accent/5 border border-brand-accent/20 p-3 rounded-lg">
+                <h3 class="text-sm font-semibold text-brand-accent mb-1"><i class="fa-solid fa-microchip mr-2"></i>核心產業與技術</h3>
                 <p id="country-tech" class="text-sm leading-relaxed"></p>
             </div>
 
@@ -205,49 +221,43 @@
             <div class="flex flex-col gap-4 pb-8">
                 <h3 class="text-lg font-bold text-white border-l-4 border-brand-warning pl-2 mt-2">戰略總成績單</h3>
                 
-                <div class="analysis-block">
+                <div class="analysis-block bg-slate-800/30 p-3 rounded border border-slate-700/50">
                     <h4 class="text-sm font-semibold text-green-400 mb-1"><i class="fa-solid fa-star mr-1"></i>最想得到的能力</h4>
-                    <ul id="analysis-desired" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-green-400/50"></ul>
+                    <ul id="analysis-desired" class="list-disc pl-5 text-sm text-slate-300 space-y-1"></ul>
                 </div>
-                <div class="analysis-block">
+                <div class="analysis-block bg-slate-800/30 p-3 rounded border border-slate-700/50">
                     <h4 class="text-sm font-semibold text-yellow-400 mb-1"><i class="fa-solid fa-shield-halved mr-1"></i>絕對不能失去的能力</h4>
-                    <ul id="analysis-cannot-lose" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-yellow-400/50"></ul>
+                    <ul id="analysis-cannot-lose" class="list-disc pl-5 text-sm text-slate-300 space-y-1"></ul>
                 </div>
-                <div class="analysis-block">
+                <div class="analysis-block bg-slate-800/30 p-3 rounded border border-slate-700/50">
                     <h4 class="text-sm font-semibold text-brand-accent mb-1"><i class="fa-solid fa-bolt mr-1"></i>已經擁有的最強能力</h4>
-                    <ul id="analysis-strongest" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-brand-accent/50"></ul>
+                    <ul id="analysis-strongest" class="list-disc pl-5 text-sm text-slate-300 space-y-1"></ul>
                 </div>
-                <div class="analysis-block">
+                <div class="analysis-block bg-slate-800/30 p-3 rounded border border-slate-700/50">
                     <h4 class="text-sm font-semibold text-brand-danger mb-1"><i class="fa-solid fa-heart-crack mr-1"></i>最脆弱的弱點因素</h4>
-                    <ul id="analysis-weakness" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-brand-danger/50"></ul>
+                    <ul id="analysis-weakness" class="list-disc pl-5 text-sm text-slate-300 space-y-1"></ul>
                 </div>
-                <div class="analysis-block">
+                <div class="analysis-block bg-slate-800/30 p-3 rounded border border-slate-700/50">
                     <h4 class="text-sm font-semibold text-purple-400 mb-1"><i class="fa-solid fa-gem mr-1"></i>長年累積的自信能力</h4>
-                    <ul id="analysis-confident" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-purple-400/50"></ul>
+                    <ul id="analysis-confident" class="list-disc pl-5 text-sm text-slate-300 space-y-1"></ul>
                 </div>
             </div>
         </div>
 
-        <!-- Empty State -->
         <div id="panel-empty" class="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
             <i class="fa-solid fa-map-location-dot text-6xl text-slate-600 mb-4"></i>
             <h3 class="text-xl font-semibold text-slate-300">選擇一個國家</h3>
-            <p class="text-sm text-slate-500 mt-2">請在地圖上點擊發光的國家，以查看該國的深度戰略情報與數據。</p>
+            <p class="text-sm text-slate-500 mt-2">請在地圖上點擊發光的國家，以查看該國的深度戰略情報與關係網路。</p>
         </div>
     </div>
 
     <script>
-        // 戰略資料庫 Dataset
         const database = {
             "USA": {
-                name: "美國",
-                continent: "北美洲",
-                pop: "3.4億",
-                gdp: "28.0兆",
-                gni: "80,000",
-                debt: "約120%",
-                tech: "軟體、AI、航太、金融、高階晶片設計",
-                military: "1",
+                name: "美國", continent: "北美洲", pop: "3.4億", gdp: "28.0兆", gni: "80,000", debt: "約120%", 
+                tech: "軟體、AI、航太、金融、高階晶片設計", military: "1", gdpRank: "1",
+                allies: ["UK", "Japan", "Canada", "Australia", "South Korea", "Taiwan", "Israel"],
+                similar: ["China", "Germany", "Japan"],
                 analysis: {
                     desired: ["絕對安全的國內硬體製造鏈", "對稀土等關鍵礦物的控制力", "讓全球南方國家完全選邊站的影響力"],
                     cannotLose: ["美元作為全球儲備貨幣的霸權", "全球頂尖人才的吸引力", "絕對的海空軍優勢"],
@@ -257,14 +267,10 @@
                 }
             },
             "China": {
-                name: "中國",
-                continent: "東北亞",
-                pop: "14.1億",
-                gdp: "18.5兆",
-                gni: "13,000",
-                debt: "約80%",
-                tech: "基礎製造、電動車、無人機、綠能、網通",
-                military: "3",
+                name: "中國", continent: "東北亞", pop: "14.1億", gdp: "18.5兆", gni: "13,000", debt: "約80%", 
+                tech: "基礎製造、電動車、無人機、綠能、網通", military: "3", gdpRank: "2",
+                allies: ["Russia", "Saudi Arabia", "Brazil", "Indonesia"],
+                similar: ["USA", "Germany", "India", "South Korea"],
                 analysis: {
                     desired: ["高階半導體與設備的自主製造力", "突破美國第一島鏈的軍事與地緣優勢", "人民幣結算的國際化"],
                     cannotLose: ["龐大的國內消費市場與內循環", "作為世界工廠的完整供應鏈聚落", "能源與糧食的進口安全"],
@@ -274,14 +280,10 @@
                 }
             },
             "Germany": {
-                name: "德國",
-                continent: "歐洲",
-                pop: "8,300萬",
-                gdp: "4.5兆",
-                gni: "53,000",
-                debt: "約65%",
-                tech: "汽車工業、精密機械、化工、高端設備",
-                military: "19",
+                name: "德國", continent: "歐洲", pop: "8,300萬", gdp: "4.5兆", gni: "53,000", debt: "約65%", 
+                tech: "汽車工業、精密機械、化工、高端設備", military: "19", gdpRank: "3",
+                allies: ["France", "USA", "Netherlands", "Poland", "Austria"],
+                similar: ["Japan", "South Korea", "Italy", "China"],
                 analysis: {
                     desired: ["擺脫對俄羅斯能源的歷史依賴", "數位化轉型與AI產業鏈的建立", "整合的歐洲防務力量"],
                     cannotLose: ["在歐盟內部的經濟主導地位", "高階精密機械的出口競爭力", "龐大的歐盟內部零關稅市場"],
@@ -291,14 +293,10 @@
                 }
             },
             "Japan": {
-                name: "日本",
-                continent: "東北亞",
-                pop: "1.2億",
-                gdp: "4.1兆",
-                gni: "42,000",
-                debt: "約250%",
-                tech: "半導體材料、精密設備、光學、汽車",
-                military: "7",
+                name: "日本", continent: "東北亞", pop: "1.2億", gdp: "4.1兆", gni: "42,000", debt: "約250%", 
+                tech: "半導體材料、精密設備、光學、汽車", military: "7", gdpRank: "4",
+                allies: ["USA", "Taiwan", "Australia", "UK", "South Korea"],
+                similar: ["Germany", "South Korea", "Taiwan"],
                 analysis: {
                     desired: ["擺脫高齡化帶來的勞動力枯竭", "地緣政治上的完全正常化軍隊", "重返半導體製造榮耀"],
                     cannotLose: ["在全球供應鏈中不可取代的材料與設備地位", "日圓的避險貨幣地位", "與美國的安保條約"],
@@ -308,14 +306,10 @@
                 }
             },
             "India": {
-                name: "印度",
-                continent: "南亞",
-                pop: "14.3億",
-                gdp: "3.9兆",
-                gni: "2,500",
-                debt: "約80%",
-                tech: "軟體代工、製藥、基礎農工、IT服務",
-                military: "4",
+                name: "印度", continent: "南亞", pop: "14.3億", gdp: "3.9兆", gni: "2,500", debt: "約80%", 
+                tech: "軟體代工、製藥、基礎農工、IT服務", military: "4", gdpRank: "5",
+                allies: ["USA", "Russia", "Japan", "Australia", "UAE"],
+                similar: ["China", "Brazil", "Indonesia"],
                 analysis: {
                     desired: ["取代中國成為世界基礎製造工廠", "聯合國安理會常任理事國席位", "完善的全國交通與電力基礎設施"],
                     cannotLose: ["龐大且年輕的人口紅利", "不結盟的外交戰略模糊空間", "西方世界對抗中國的扶持"],
@@ -325,14 +319,10 @@
                 }
             },
             "UK": {
-                name: "英國",
-                continent: "歐洲",
-                pop: "6,800萬",
-                gdp: "3.5兆",
-                gni: "49,000",
-                debt: "約100%",
-                tech: "金融服務、製藥、航太發動機、生技",
-                military: "6",
+                name: "英國", continent: "歐洲", pop: "6,800萬", gdp: "3.5兆", gni: "49,000", debt: "約100%", 
+                tech: "金融服務、製藥、航太發動機、生技", military: "6", gdpRank: "6",
+                allies: ["USA", "Australia", "Canada", "Japan", "France"],
+                similar: ["Switzerland", "USA", "France"],
                 analysis: {
                     desired: ["脫歐後全新的全球貿易協定", "維持倫敦作為全球金融中心的地位", "AI與前瞻科技的領導權"],
                     cannotLose: ["英語文化的全球話語權", "美國的特殊盟友關係", "頂尖的高等教育樞紐地位"],
@@ -342,7 +332,10 @@
                 }
             },
             "France": { 
-                name: "法國", continent: "歐洲", pop: "6,800萬", gdp: "3.1兆", gni: "44,000", debt: "約110%", tech: "核能、航太、精品、國防軍工", military: "11", 
+                name: "法國", continent: "歐洲", pop: "6,800萬", gdp: "3.1兆", gni: "44,000", debt: "約110%", 
+                tech: "核能、航太、精品、國防軍工", military: "11", gdpRank: "7",
+                allies: ["Germany", "USA", "Italy", "Spain", "UK"],
+                similar: ["Germany", "UK", "Italy"],
                 analysis: { 
                     desired: ["歐洲防務與戰略絕對自主", "AI與未來科技技術突破", "本土高階製造業的全面再工業化"], 
                     cannotLose: ["西非地區的地緣政治與資源影響力", "歐盟共同農業政策的鉅額補貼", "高比例的核能發電自主性"], 
@@ -352,7 +345,10 @@
                 } 
             },
             "Brazil": { 
-                name: "巴西", continent: "南美洲", pop: "2.1億", gdp: "2.3兆", gni: "9,000", debt: "約75%", tech: "農業、鐵礦砂、原油、中型客機", military: "10", 
+                name: "巴西", continent: "南美洲", pop: "2.1億", gdp: "2.3兆", gni: "9,000", debt: "約75%", 
+                tech: "農業、鐵礦砂、原油、中型客機", military: "10", gdpRank: "8",
+                allies: ["China", "USA", "Argentina"],
+                similar: ["Argentina", "Australia", "Indonesia"],
                 analysis: { 
                     desired: ["高階製造業轉型與升級", "亞馬遜天然資源的絕對定價權", "鞏固在南美洲的絕對領導地位"], 
                     cannotLose: ["龐大的農工產品出口市場", "豐富的水資源與再生能源優勢", "不結盟的靈活政治空間"], 
@@ -362,7 +358,10 @@
                 } 
             },
             "Italy": { 
-                name: "義大利", continent: "歐洲", pop: "5,900萬", gdp: "2.3兆", gni: "38,000", debt: "約140%", tech: "精品、機械、汽車零組件、觀光", military: "12", 
+                name: "義大利", continent: "歐洲", pop: "5,900萬", gdp: "2.3兆", gni: "38,000", debt: "約140%", 
+                tech: "精品、機械、汽車零組件、觀光", military: "12", gdpRank: "9",
+                allies: ["Germany", "France", "USA", "Spain"],
+                similar: ["France", "Spain", "Germany"],
                 analysis: { 
                     desired: ["擺脫龐大國債的惡性循環", "穩定的政府內閣與政策連續性", "鞏固南歐與地中海的樞紐地位"], 
                     cannotLose: ["全球頂級精品的品牌定價權", "在歐洲汽車供應鏈中的關鍵地位", "無可匹敵的觀光與文化遺產紅利"], 
@@ -372,7 +371,10 @@
                 } 
             },
             "Canada": { 
-                name: "加拿大", continent: "北美洲", pop: "4,000萬", gdp: "2.2兆", gni: "54,000", debt: "約105%", tech: "石油、天然氣、林業、金融", military: "26", 
+                name: "加拿大", continent: "北美洲", pop: "4,000萬", gdp: "2.2兆", gni: "54,000", debt: "約105%", 
+                tech: "石油、天然氣、林業、金融", military: "26", gdpRank: "10",
+                allies: ["USA", "UK", "Australia", "France"],
+                similar: ["Australia", "Russia", "Brazil"],
                 analysis: { 
                     desired: ["降低對美國單一市場的過度依賴", "主導北極圈資源與航道權", "吸引更多全球頂尖科技與AI人才"], 
                     cannotLose: ["美加墨自由貿易協定(USMCA)", "龐大的自然資源出口收益", "極度穩定的金融與銀行體系"], 
@@ -382,14 +384,10 @@
                 } 
             },
             "Russia": {
-                name: "俄羅斯",
-                continent: "歐亞",
-                pop: "1.4億",
-                gdp: "2.0兆",
-                gni: "14,000",
-                debt: "約20%",
-                tech: "原油、天然氣、軍工、小麥",
-                military: "2",
+                name: "俄羅斯", continent: "歐亞", pop: "1.4億", gdp: "2.0兆", gni: "14,000", debt: "約20%", 
+                tech: "原油、天然氣、軍工、小麥", military: "2", gdpRank: "11",
+                allies: ["China", "India", "Brazil"],
+                similar: ["Saudi Arabia", "Canada", "Australia"],
                 analysis: {
                     desired: ["打破西方的全面經濟與金融制裁", "控制東歐地緣政治緩衝區", "高科技零組件的進口管道"],
                     cannotLose: ["龐大的核武庫與威懾力", "對歐洲能源市場(尤其是天然氣)的影響力", "政權內部的絕對穩定"],
@@ -399,7 +397,10 @@
                 }
             },
             "Mexico": { 
-                name: "墨西哥", continent: "北美洲", pop: "1.3億", gdp: "1.8兆", gni: "12,000", debt: "約50%", tech: "汽車代工、電子組裝、石油", military: "31", 
+                name: "墨西哥", continent: "北美洲", pop: "1.3億", gdp: "1.8兆", gni: "12,000", debt: "約50%", 
+                tech: "汽車代工、電子組裝、石油", military: "31", gdpRank: "12",
+                allies: ["USA", "Canada", "Spain"],
+                similar: ["Thailand", "Poland", "Indonesia"],
                 analysis: { 
                     desired: ["擺脫中等收入陷阱", "減少國家體系對毒品黑幫的依賴", "藉由近岸外包升級半導體與高階製造業"], 
                     cannotLose: ["與美國的漫長邊界及USMCA貿易協定", "美國企業近岸外包(Nearshoring)的紅利", "海外僑民龐大且穩定的外匯匯款"], 
@@ -409,7 +410,10 @@
                 } 
             },
             "Australia": { 
-                name: "澳洲", continent: "南太平洋", pop: "2,600萬", gdp: "1.7兆", gni: "60,000", debt: "約55%", tech: "鐵礦砂、煤炭、天然氣、農產品", military: "16", 
+                name: "澳洲", continent: "南太平洋", pop: "2,600萬", gdp: "1.7兆", gni: "60,000", debt: "約55%", 
+                tech: "鐵礦砂、煤炭、天然氣、農產品", military: "16", gdpRank: "13",
+                allies: ["USA", "UK", "Japan", "South Korea"],
+                similar: ["Canada", "Brazil", "Russia"],
                 analysis: { 
                     desired: ["全球供應鏈與出口市場的多元化", "核動力潛艦(AUKUS)帶來的區域威懾力", "向綠能與氫能超級大國轉型的契機"], 
                     cannotLose: ["美澳軍事同盟的絕對安全保障", "南海與印太地區的自由航行生命線", "全球大宗原物料(鐵礦)的定價權"], 
@@ -419,7 +423,10 @@
                 } 
             },
             "South Korea": { 
-                name: "韓國", continent: "東北亞", pop: "5,100萬", gdp: "1.7兆", gni: "35,000", debt: "約55%", tech: "記憶體晶片、造船、消費電子、汽車", military: "5", 
+                name: "韓國", continent: "東北亞", pop: "5,100萬", gdp: "1.7兆", gni: "35,000", debt: "約55%", 
+                tech: "記憶體晶片、造船、消費電子、汽車", military: "5", gdpRank: "14",
+                allies: ["USA", "Japan", "Australia"],
+                similar: ["Taiwan", "Japan", "Germany"],
                 analysis: { 
                     desired: ["徹底擺脫北韓的核武與軍事威脅", "突破高階晶片封裝與設計的技術瓶頸", "建立不亞於硬體的全球軟體與AI實力"], 
                     cannotLose: ["美韓軍事同盟與駐軍保護", "超級財閥在國際市場上的競爭力", "暢通無阻的全球電子消費品出口市場"], 
@@ -429,7 +436,10 @@
                 } 
             },
             "Spain": { 
-                name: "西班牙", continent: "歐洲", pop: "4,800萬", gdp: "1.6兆", gni: "32,000", debt: "約110%", tech: "觀光、基礎建設工程、再生能源", military: "20", 
+                name: "西班牙", continent: "歐洲", pop: "4,800萬", gdp: "1.6兆", gni: "32,000", debt: "約110%", 
+                tech: "觀光、基礎建設工程、再生能源", military: "20", gdpRank: "15",
+                allies: ["France", "Italy", "Germany", "Mexico"],
+                similar: ["Italy", "France"],
                 analysis: { 
                     desired: ["解決高居不下的青年失業率", "降低國家經濟對觀光業的過度依賴", "加強與拉丁美洲西語系國家的經濟連結"], 
                     cannotLose: ["歐盟龐大的資金補貼與單一市場", "全球頂級觀光勝地的不可取代地位", "穩定的民主政體與皇室整合力量"], 
@@ -439,7 +449,10 @@
                 } 
             },
             "Indonesia": { 
-                name: "印尼", continent: "東南亞", pop: "2.7億", gdp: "1.4兆", gni: "5,000", debt: "約40%", tech: "鎳礦冶煉、棕櫚油、煤炭、基礎代工", military: "13", 
+                name: "印尼", continent: "東南亞", pop: "2.7億", gdp: "1.4兆", gni: "5,000", debt: "約40%", 
+                tech: "鎳礦冶煉、棕櫚油、煤炭、基礎代工", military: "13", gdpRank: "16",
+                allies: ["China", "Japan", "USA", "Australia"],
+                similar: ["Brazil", "India", "Mexico"],
                 analysis: { 
                     desired: ["建立本土的電動車與電池完整產業鏈", "順利完成首都搬遷至努山塔拉的浩大工程", "取得東協(ASEAN)的絕對領導話語權"], 
                     cannotLose: ["馬六甲海峽與印太海域的戰略樞紐位置", "鎳礦等關鍵礦產的出口管制權力", "國內多民族與多宗教的脆弱政治平衡"], 
@@ -449,7 +462,10 @@
                 } 
             },
             "Netherlands": { 
-                name: "荷蘭", continent: "歐洲", pop: "1,700萬", gdp: "1.1兆", gni: "60,000", debt: "約50%", tech: "半導體微影設備、農業科技、物流", military: "39", 
+                name: "荷蘭", continent: "歐洲", pop: "1,700萬", gdp: "1.1兆", gni: "60,000", debt: "約50%", 
+                tech: "半導體微影設備、農業科技、物流", military: "39", gdpRank: "17",
+                allies: ["Germany", "Belgium", "USA", "UK"],
+                similar: ["Belgium", "Switzerland", "Taiwan"],
                 analysis: { 
                     desired: ["維持全球半導體設備製造的絕對壟斷地位", "確保鹿特丹港的歐洲進出門戶地位", "對抗海平面上升的極端氣候挑戰"], 
                     cannotLose: ["ASML等關鍵科技企業的根基與研發能量", "極度開放自由的全球貿易環境", "歐盟內部的核心樞紐地位"], 
@@ -459,7 +475,10 @@
                 } 
             },
             "Turkey": { 
-                name: "土耳其", continent: "歐亞", pop: "8,500萬", gdp: "1.1兆", gni: "11,000", debt: "約35%", tech: "紡織、汽車零件、無人機軍工、營造", military: "8", 
+                name: "土耳其", continent: "歐亞", pop: "8,500萬", gdp: "1.1兆", gni: "11,000", debt: "約35%", 
+                tech: "紡織、汽車零件、無人機軍工、營造", military: "8", gdpRank: "18",
+                allies: ["UK", "USA", "Russia"],
+                similar: ["Mexico", "Poland", "Thailand"],
                 analysis: { 
                     desired: ["成為歐亞非三大洲的絕對能源與物流樞紐", "完全自主且具出口優勢的國防工業體系", "恢復昔日鄂圖曼帝國的地緣政治影響力"], 
                     cannotLose: ["控制黑海進出地中海的博斯普魯斯海峽", "作為北約第二大常規軍隊的戰略地位", "對中東與突厥語系國家的號召力"], 
@@ -469,7 +488,10 @@
                 } 
             },
             "Saudi Arabia": { 
-                name: "沙烏地阿拉伯", continent: "中東", pop: "3,600萬", gdp: "1.0兆", gni: "28,000", debt: "約25%", tech: "原油開採、石化工業、主權基金投資", military: "23", 
+                name: "沙烏地阿拉伯", continent: "中東", pop: "3,600萬", gdp: "1.0兆", gni: "28,000", debt: "約25%", 
+                tech: "原油開採、石化工業、主權基金投資", military: "23", gdpRank: "19",
+                allies: ["USA", "UAE", "China", "UK"],
+                similar: ["Russia", "UAE", "Canada"],
                 analysis: { 
                     desired: ["成功轉型為非石油依賴的科技與觀光大國(願景2030)", "中東地區絕對的政治與宗教領導權", "安全無虞的波斯灣石油出口航道"], 
                     cannotLose: ["美國的安全承諾與高階軍火供應", "伊斯蘭教兩大聖地(麥加、麥地那)的守護者地位", "OPEC組織的產量與定價主導權"], 
@@ -479,7 +501,10 @@
                 } 
             },
             "Switzerland": { 
-                name: "瑞士", continent: "歐洲", pop: "880萬", gdp: "0.9兆", gni: "90,000", debt: "約40%", tech: "製藥、精密鐘錶、金融與財富管理", military: "43", 
+                name: "瑞士", continent: "歐洲", pop: "880萬", gdp: "0.9兆", gni: "90,000", debt: "約40%", 
+                tech: "製藥、精密鐘錶、金融與財富管理", military: "43", gdpRank: "20",
+                allies: ["Germany", "France", "USA", "Italy"],
+                similar: ["UK", "Ireland", "Netherlands"],
                 analysis: { 
                     desired: ["在歐盟包圍下維持絕對的中立與貿易優勢", "確保瑞士法郎的全球避險天堂地位", "在AI與生技醫療領域維持頂尖研發優勢"], 
                     cannotLose: ["永久中立國的國際法律與政治地位", "全球最嚴密的金融保密與財富管理信譽", "政治與社會的高度自治與絕對穩定"], 
@@ -489,7 +514,10 @@
                 } 
             },
             "Poland": { 
-                name: "波蘭", continent: "歐洲", pop: "3,700萬", gdp: "0.8兆", gni: "19,000", debt: "約50%", tech: "IT服務、機械、食品加工、家電製造", military: "21", 
+                name: "波蘭", continent: "歐洲", pop: "3,700萬", gdp: "0.8兆", gni: "19,000", debt: "約50%", 
+                tech: "IT服務、機械、食品加工、家電製造", military: "21", gdpRank: "21",
+                allies: ["USA", "Germany", "UK"],
+                similar: ["Mexico", "Turkey"],
                 analysis: { 
                     desired: ["建立全歐洲最強大且裝備最精良的常規陸軍", "徹底消除俄羅斯帶來的地緣安全威脅", "從西歐代工廠升級為歐洲科技創新中心"], 
                     cannotLose: ["北約與美國的駐軍及堅實安全保障", "歐盟高額的基礎建設與區域發展基金", "通往烏克蘭與東歐的物流樞紐地位"], 
@@ -499,14 +527,10 @@
                 } 
             },
             "Taiwan": {
-                name: "台灣",
-                continent: "東北亞",
-                pop: "2,300萬",
-                gdp: "0.8兆",
-                gni: "35,000",
-                debt: "約30%",
-                tech: "晶圓代工(高階製程)、IC設計、電子代工",
-                military: "24",
+                name: "台灣", continent: "東北亞", pop: "2,300萬", gdp: "0.8兆", gni: "35,000", debt: "約30%", 
+                tech: "晶圓代工(高階製程)、IC設計、電子代工", military: "24", gdpRank: "22",
+                allies: ["USA", "Japan", "Netherlands"],
+                similar: ["South Korea", "Netherlands", "Japan"],
                 analysis: {
                     desired: ["國際政治上的正式承認與安全保障", "穩定的綠能與水電基礎設施", "軟體與品牌的全球影響力"],
                     cannotLose: ["先進製程晶圓代工的絕對壟斷地位", "美國與盟友的安全承諾", "高素質且耐勞的理工人才"],
@@ -516,7 +540,10 @@
                 }
             },
             "Argentina": { 
-                name: "阿根廷", continent: "南美洲", pop: "4,600萬", gdp: "0.6兆", gni: "12,000", debt: "約85%", tech: "黃豆、牛肉、小麥、鋰礦", military: "28", 
+                name: "阿根廷", continent: "南美洲", pop: "4,600萬", gdp: "0.6兆", gni: "12,000", debt: "約85%", 
+                tech: "黃豆、牛肉、小麥、鋰礦", military: "28", gdpRank: "23",
+                allies: ["Brazil", "USA", "Spain"],
+                similar: ["Brazil", "Australia"],
                 analysis: { 
                     desired: ["徹底根除長期的惡性通貨膨脹噩夢", "獲得IMF等國際組織的債務寬限與外資信任", "掌握全球電動車鋰礦供應鏈的定價權"], 
                     cannotLose: ["潘帕斯草原的龐大農牧業出口產能", "與巴西及南方共同市場的貿易連結", "國民對足球等體育帶來的極高國家凝聚力"], 
@@ -526,7 +553,10 @@
                 } 
             },
             "Belgium": { 
-                name: "比利時", continent: "歐洲", pop: "1,100萬", gdp: "0.6兆", gni: "53,000", debt: "約105%", tech: "化工、生技、鑽石加工、物流樞紐", military: "66", 
+                name: "比利時", continent: "歐洲", pop: "1,100萬", gdp: "0.6兆", gni: "53,000", debt: "約105%", 
+                tech: "化工、生技、鑽石加工、物流樞紐", military: "66", gdpRank: "24",
+                allies: ["Netherlands", "France", "Germany"],
+                similar: ["Netherlands", "Switzerland"],
                 analysis: { 
                     desired: ["確保布魯塞爾作為歐盟與北約雙首都的地位", "克服國內荷語區與法語區的深刻政治分裂", "在歐洲物流與生技產業維持領先優勢"], 
                     cannotLose: ["歐洲單一市場帶來的無障礙自由貿易", "安特衛普港在歐洲的進出口樞紐地位", "龐大跨國企業總部群聚帶來的經濟紅利"], 
@@ -536,7 +566,10 @@
                 } 
             },
             "Sweden": { 
-                name: "瑞典", continent: "歐洲", pop: "1,000萬", gdp: "0.6兆", gni: "60,000", debt: "約35%", tech: "通訊設備、汽車、鋼鐵、軍工", military: "37", 
+                name: "瑞典", continent: "歐洲", pop: "1,000萬", gdp: "0.6兆", gni: "60,000", debt: "約35%", 
+                tech: "通訊設備、汽車、鋼鐵、軍工", military: "37", gdpRank: "25",
+                allies: ["USA", "UK", "Germany", "Poland"],
+                similar: ["Germany", "South Korea"],
                 analysis: { 
                     desired: ["在加入北約後重塑波羅的海的安全格局", "成為全球第一個完全無石化燃料的福利國家", "在5G/6G通訊標準上抗衡中國技術"], 
                     cannotLose: ["愛立信等核心科技企業的全球競爭力", "北歐模式的高福利與社會平權價值觀", "豐富的優質鐵礦砂與水力、森林資源"], 
@@ -546,7 +579,10 @@
                 } 
             },
             "Ireland": { 
-                name: "愛爾蘭", continent: "歐洲", pop: "520萬", gdp: "0.5兆", gni: "80,000", debt: "約45%", tech: "跨國科技業歐洲總部、製藥、IT服務", military: "95", 
+                name: "愛爾蘭", continent: "歐洲", pop: "520萬", gdp: "0.5兆", gni: "80,000", debt: "約45%", 
+                tech: "跨國科技業歐洲總部、製藥、IT服務", military: "95", gdpRank: "26",
+                allies: ["USA", "UK", "Germany"],
+                similar: ["Switzerland", "UK"],
                 analysis: { 
                     desired: ["確保跨國科技巨頭持續將歐洲總部設於此", "解決跨國企業湧入導致的嚴重住房與通膨危機", "維持脫歐後愛爾蘭島的邊界開放與和平"], 
                     cannotLose: ["極具競爭力的超低企業所得稅率", "作為歐盟唯一英語系國家的特殊優勢地位", "美國矽谷企業在歐洲最重要的避風港功能"], 
@@ -556,7 +592,10 @@
                 } 
             },
             "Thailand": { 
-                name: "泰國", continent: "東南亞", pop: "7,100萬", gdp: "0.5兆", gni: "7,000", debt: "約60%", tech: "汽車代工、硬碟製造、觀光、農產品", military: "25", 
+                name: "泰國", continent: "東南亞", pop: "7,100萬", gdp: "0.5兆", gni: "7,000", debt: "約60%", 
+                tech: "汽車代工、硬碟製造、觀光、農產品", military: "25", gdpRank: "27",
+                allies: ["Japan", "China", "USA"],
+                similar: ["Mexico", "Indonesia"],
                 analysis: { 
                     desired: ["擺脫中等收入陷阱並升級為東南亞高階製造中心", "在美中地緣博弈中維持完美的平衡獲利", "解決人口快速高齡化帶來的勞動力短缺"], 
                     cannotLose: ["外資(尤其是日本)在此建立的深厚汽車代工鏈", "全球觀光客帶來的龐大外匯收入", "皇室與軍方妥協下的基本政治與社會穩定"], 
@@ -566,7 +605,10 @@
                 } 
             },
             "Austria": { 
-                name: "奧地利", continent: "歐洲", pop: "900萬", gdp: "0.5兆", gni: "55,000", debt: "約75%", tech: "汽車引擎與零件、精密機械、觀光", military: "61", 
+                name: "奧地利", continent: "歐洲", pop: "900萬", gdp: "0.5兆", gni: "55,000", debt: "約75%", 
+                tech: "汽車引擎與零件、精密機械、觀光", military: "61", gdpRank: "28",
+                allies: ["Germany", "Switzerland", "Italy"],
+                similar: ["Germany", "Switzerland"],
                 analysis: { 
                     desired: ["在歐洲綠能轉型中成為關鍵零組件供應商", "維持維也納作為國際組織與外交斡旋中心的地位", "解決嚴重影響企業運作的勞動力短缺問題"], 
                     cannotLose: ["與德國經濟的高度整合與緊密供應鏈關係", "永久中立國的地位與俄羅斯能源的穩定過渡", "高端觀光業與冬季運動產業的巨大收益"], 
@@ -576,7 +618,10 @@
                 } 
             },
             "Israel": { 
-                name: "以色列", continent: "中東", pop: "980萬", gdp: "0.5兆", gni: "54,000", debt: "約60%", tech: "資安軟體、軍工、農業科技、醫療器材", military: "17", 
+                name: "以色列", continent: "中東", pop: "980萬", gdp: "0.5兆", gni: "54,000", debt: "約60%", 
+                tech: "資安軟體、軍工、農業科技、醫療器材", military: "17", gdpRank: "29",
+                allies: ["USA", "UK", "Germany"],
+                similar: ["USA", "Taiwan", "UK"],
                 analysis: { 
                     desired: ["中東地區絕對的軍事霸權與國家生存安全", "與沙烏地等阿拉伯國家實質關係正常化", "AI、資安與前瞻軍工科技的絕對領先"], 
                     cannotLose: ["美國無條件的軍事支援與政治外交支持", "猶太裔在全球資本市場與科技界的影響力", "全民皆兵的國防意識與極速動員力"], 
@@ -586,63 +631,36 @@
                 } 
             },
             "UAE": { 
-                name: "阿聯酋", continent: "中東", pop: "1,000萬", gdp: "0.5兆", gni: "52,000", debt: "約30%", tech: "原油、航空轉運、觀光、主權基金投資", military: "51", 
+                name: "阿聯酋", continent: "中東", pop: "1,000萬", gdp: "0.5兆", gni: "52,000", debt: "約30%", 
+                tech: "原油、航空轉運、觀光、主權基金投資", military: "51", gdpRank: "30",
+                allies: ["Saudi Arabia", "USA", "UK", "India"],
+                similar: ["Saudi Arabia", "Switzerland"],
                 analysis: { 
                     desired: ["在後石油時代成功轉型為全球AI與數位金融中心", "維持杜拜作為中東絕對的航空與物流樞紐", "在複雜的中東局勢與強鄰間確保國家絕對安全"], 
                     cannotLose: ["龐大外籍勞工與全球高階人才的穩定輸入", "阿布達比主權基金的強大資本與投資回報", "美國的安全保護傘與先進軍事裝備"], 
                     strongest: ["全球最具效率的航空樞紐(阿聯酋航空)與深水港口", "憑藉雄厚資本吸引全球頂尖科技與AI人才的能力", "極度奢華且治安良好的觀光與房地產市場"], 
                     weakness: ["本國人口極少，軍隊與經濟高度依賴外國人", "身處伊朗與周邊衝突熱區的極高地緣政治風險", "氣候極端炎熱且水資源完全依賴高耗能的海水淡化"], 
-                    confident: ["極具遠見與執行力的王室菁英決策模式", "免個人所得稅帶來的極強資金與企業磁吸效應", "在東西方文化與資本間遊刃有餘的橋樑能力"] 
+                    confident: ["極具遠見與執行力的王室菁英決策模式", "免個人所得稅帶來的極強資金與企業磁吸效應", "在東西方文化與資本間遊刃越有餘的橋樑能力"] 
                 } 
             }
         };
 
-        // Name Mapper to handle GeoJSON country names matching our Database keys
         const nameMapper = {
-            "USA": "USA",
-            "United States of America": "USA",
-            "United States": "USA",
-            "China": "China",
-            "Germany": "Germany",
-            "Japan": "Japan",
-            "India": "India",
-            "UK": "UK",
-            "United Kingdom": "UK",
-            "England": "UK",
-            "Great Britain": "UK",
-            "France": "France",
-            "Brazil": "Brazil",
-            "Italy": "Italy",
-            "Canada": "Canada",
-            "Russia": "Russia",
-            "Russian Federation": "Russia",
-            "Mexico": "Mexico",
-            "Australia": "Australia",
-            "South Korea": "South Korea",
-            "Republic of Korea": "South Korea",
-            "Korea": "South Korea",
-            "Spain": "Spain",
-            "Indonesia": "Indonesia",
-            "Netherlands": "Netherlands",
-            "The Netherlands": "Netherlands",
-            "Turkey": "Turkey",
-            "Türkiye": "Turkey",
-            "Saudi Arabia": "Saudi Arabia",
-            "Switzerland": "Switzerland",
-            "Poland": "Poland",
-            "Taiwan": "Taiwan",
-            "Argentina": "Argentina",
-            "Belgium": "Belgium",
-            "Sweden": "Sweden",
-            "Ireland": "Ireland",
-            "Thailand": "Thailand",
-            "Austria": "Austria",
-            "Israel": "Israel",
-            "UAE": "UAE",
-            "United Arab Emirates": "UAE"
+            "USA": "USA", "United States of America": "USA", "United States": "USA",
+            "China": "China", "Germany": "Germany", "Japan": "Japan", "India": "India",
+            "UK": "UK", "United Kingdom": "UK", "England": "UK", "Great Britain": "UK",
+            "France": "France", "Brazil": "Brazil", "Italy": "Italy", "Canada": "Canada",
+            "Russia": "Russia", "Russian Federation": "Russia", "Mexico": "Mexico",
+            "Australia": "Australia", "South Korea": "South Korea", "Republic of Korea": "South Korea",
+            "Korea": "South Korea", "Spain": "Spain", "Indonesia": "Indonesia",
+            "Netherlands": "Netherlands", "The Netherlands": "Netherlands",
+            "Turkey": "Turkey", "Türkiye": "Turkey", "Saudi Arabia": "Saudi Arabia",
+            "Switzerland": "Switzerland", "Poland": "Poland", "Taiwan": "Taiwan",
+            "Argentina": "Argentina", "Belgium": "Belgium", "Sweden": "Sweden",
+            "Ireland": "Ireland", "Thailand": "Thailand", "Austria": "Austria",
+            "Israel": "Israel", "UAE": "UAE", "United Arab Emirates": "UAE"
         };
 
-        // DOM Elements
         const mapContainer = document.getElementById('map');
         const infoPanel = document.getElementById('info-panel');
         const panelContent = document.getElementById('panel-content');
@@ -651,10 +669,8 @@
         const tooltip = document.getElementById('tooltip');
         const loadingScreen = document.getElementById('loading');
 
-        // State
         let selectedCountryId = null;
 
-        // D3 Setup
         const width = mapContainer.clientWidth;
         const height = mapContainer.clientHeight;
 
@@ -667,14 +683,12 @@
 
         const g = svg.append("g");
 
-        // Map Projection
         const projection = d3.geoMercator()
             .scale(width / 6.5)
             .translate([width / 2, height / 1.5]);
 
         const path = d3.geoPath().projection(projection);
 
-        // Zoom Behavior
         const zoom = d3.zoom()
             .scaleExtent([1, 8])
             .on("zoom", (event) => {
@@ -683,31 +697,56 @@
 
         svg.call(zoom);
 
-        // Reset view button
         document.getElementById('reset-view').addEventListener('click', () => {
             svg.transition().duration(750).call(
                 zoom.transform, 
                 d3.zoomIdentity, 
                 d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
             );
+            // Optional: reset selection on zoom reset
         });
 
-        // Mobile panel close handler
         closePanelBtn.addEventListener('click', () => {
             infoPanel.classList.add('translate-y-full');
-            // Remove selection highlight
-            d3.selectAll('.country').classed('selected', false);
+            d3.selectAll('.country')
+                .classed('selected', false)
+                .classed('ally', false)
+                .classed('similar', false);
             selectedCountryId = null;
         });
 
-        // Load GeoJSON Data
+        // 核心切換邏輯 (點擊地圖或點擊按鈕時觸發)
+        window.selectCountry = function(countryKey) {
+            if (!database[countryKey]) return;
+            selectedCountryId = countryKey;
+
+            // Update Map Highlighting
+            d3.selectAll('.country').each(function(d) {
+                let geoName = d.properties.name;
+                let mappedKey = nameMapper[geoName] || geoName;
+                let node = d3.select(this);
+                
+                node.classed('selected', false).classed('ally', false).classed('similar', false);
+                
+                if (mappedKey === countryKey) {
+                    node.classed('selected', true);
+                    // Bring to front
+                    this.parentNode.appendChild(this);
+                } else if (database[countryKey].allies && database[countryKey].allies.includes(mappedKey)) {
+                    node.classed('ally', true);
+                } else if (database[countryKey].similar && database[countryKey].similar.includes(mappedKey)) {
+                    node.classed('similar', true);
+                }
+            });
+
+            updatePanel(database[countryKey]);
+        };
+
         const geoDataUrl = "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson";
 
         d3.json(geoDataUrl).then(data => {
-            // Remove Loading Screen
             loadingScreen.classList.add('hidden');
 
-            // Draw Map
             g.selectAll("path")
                 .data(data.features)
                 .enter()
@@ -715,19 +754,13 @@
                 .attr("class", d => {
                     let geoName = d.properties.name;
                     let mappedKey = nameMapper[geoName] || geoName;
-                    // 如果存在於我們的資料庫，加上 top-30 class 使其發光
-                    if (database[mappedKey]) {
-                        return "country top-30";
-                    }
-                    return "country";
+                    return database[mappedKey] ? "country top-30" : "country";
                 })
                 .attr("d", path)
-                .attr("id", d => d.id || d.properties.name.replace(/\s+/g, ''))
                 .on("mouseover", function(event, d) {
                     let geoName = d.properties.name;
                     let mappedKey = nameMapper[geoName] || geoName;
                     let displayInfo = database[mappedKey] ? `${database[mappedKey].name} (點擊查看情報)` : geoName;
-
                     tooltip.innerHTML = displayInfo;
                     tooltip.style.opacity = 1;
                 })
@@ -741,16 +774,8 @@
                 .on("click", function(event, d) {
                     let geoName = d.properties.name;
                     let mappedKey = nameMapper[geoName] || geoName;
-                    
                     if (database[mappedKey]) {
-                        // Highlight selection
-                        d3.selectAll('.country').classed('selected', false);
-                        d3.select(this).classed('selected', true);
-                        selectedCountryId = mappedKey;
-
-                        // Pan map to country (optional, kept simple for UX)
-                        // Update Data Panel
-                        updatePanel(database[mappedKey]);
+                        window.selectCountry(mappedKey);
                     }
                 });
 
@@ -759,32 +784,56 @@
             loadingScreen.innerHTML = `<h2 class="text-xl text-brand-danger">地圖載入失敗，請確認網路連線。</h2>`;
         });
 
-        // UI Update Function
         function updatePanel(data) {
-            // Show panel content, hide empty state
             panelEmpty.classList.add('hidden');
             panelContent.classList.remove('hidden');
             panelContent.classList.add('flex');
-
-            // Mobile slide up
             infoPanel.classList.remove('translate-y-full');
 
-            // Populate Text Data
             document.getElementById('country-name').innerText = data.name;
             document.getElementById('country-continent').innerText = data.continent;
+            document.getElementById('country-gdp-rank').innerText = data.gdpRank;
             document.getElementById('country-pop').innerText = data.pop;
-            document.getElementById('country-gdp').innerText = `${data.gdp} 美元`;
-            document.getElementById('country-gni').innerText = `${data.gni} 美元`;
+            document.getElementById('country-gdp').innerText = `${data.gdp}兆美元`;
+            document.getElementById('country-gni').innerText = `${data.gni}美元`;
             document.getElementById('country-debt').innerText = data.debt;
             document.getElementById('country-tech').innerText = data.tech;
-            document.getElementById('country-military').innerText = `No.${data.military}`;
+            document.getElementById('country-military').innerText = data.military;
 
-            // Populate Analysis Lists
+            renderTags('country-allies', data.allies, 'ally');
+            renderTags('country-similar', data.similar, 'similar');
+
             populateList('analysis-desired', data.analysis.desired);
             populateList('analysis-cannot-lose', data.analysis.cannotLose);
             populateList('analysis-strongest', data.analysis.strongest);
             populateList('analysis-weakness', data.analysis.weakness);
             populateList('analysis-confident', data.analysis.confident);
+            
+            // Scroll to top of panel on new selection
+            infoPanel.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderTags(elementId, keys, type) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+            if (!keys || keys.length === 0) {
+                container.innerHTML = '<span class="text-xs text-slate-500 italic">無相關數據</span>';
+                return;
+            }
+            
+            // Determine button styling based on relationship type
+            const colorClasses = type === 'ally' 
+                ? 'bg-[#064e3b]/80 hover:bg-[#34d399] hover:text-black border-[#34d399]/50 text-[#34d399]' 
+                : 'bg-[#451a03]/80 hover:bg-[#fb923c] hover:text-black border-[#fb923c]/50 text-[#fb923c]';
+
+            keys.forEach(key => {
+                if (!database[key]) return; // Skip if country not in top 30 db
+                const btn = document.createElement('button');
+                btn.className = `text-xs px-2.5 py-1 rounded transition-colors border cursor-pointer font-medium ${colorClasses}`;
+                btn.innerText = database[key].name;
+                btn.onclick = () => window.selectCountry(key);
+                container.appendChild(btn);
+            });
         }
 
         function populateList(elementId, items) {
@@ -801,7 +850,6 @@
             });
         }
 
-        // Handle resize window event to keep map scaling properly
         window.addEventListener('resize', () => {
             const w = mapContainer.clientWidth;
             const h = mapContainer.clientHeight;
