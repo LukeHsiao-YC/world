@@ -146,6 +146,10 @@
             </div>
             
             <div class="pointer-events-auto flex gap-2">
+                <button id="open-sandbox-btn" class="bg-brand-accent/20 hover:bg-brand-accent/40 text-brand-accent px-3 py-2 rounded-lg transition shadow border border-brand-accent/50 text-sm font-semibold flex items-center gap-2" title="開啟最高層級沙盤推演">
+                    <i class="fa-solid fa-chess-knight"></i>
+                    <span class="hidden md:inline">戰略推演：晶片戰</span>
+                </button>
                 <button id="reset-view" class="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition shadow border border-slate-600" title="重置視角">
                     <i class="fa-solid fa-compress"></i>
                 </button>
@@ -248,6 +252,74 @@
             <i class="fa-solid fa-map-location-dot text-6xl text-slate-600 mb-4"></i>
             <h3 class="text-xl font-semibold text-slate-300">選擇一個國家</h3>
             <p class="text-sm text-slate-500 mt-2">請在地圖上點擊發光的國家，以查看該國的深度戰略情報與關係網路。</p>
+        </div>
+    </div>
+
+    <!-- 戰略沙盤推演 Modal -->
+    <div id="sandbox-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="sandbox-backdrop"></div>
+        <div class="relative w-full max-w-4xl max-h-[90vh] bg-[#1e293b] border border-slate-600 rounded-xl shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="sandbox-content-box">
+            
+            <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-[#0f172a]">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-chess-knight text-brand-warning"></i> 最高層級換位思考：全球半導體戰爭
+                </h2>
+                <button id="close-sandbox-btn" class="text-slate-400 hover:text-white transition text-3xl leading-none">&times;</button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1 text-slate-300 space-y-6 text-sm md:text-base leading-relaxed">
+                <p>現在把焦點拉高，試著站在總體經濟霸權第1名美國，以及第2名中國的立場進行換位思考。</p>
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="bg-slate-800/50 p-4 rounded-lg border border-blue-500/30">
+                        <h3 class="text-blue-400 font-bold mb-2 text-lg"><i class="fa-solid fa-flag-usa"></i> 美國的第一原則</h3>
+                        <p>絕對不允許任何單一國家擁有挑戰美國制定全球規則的能力。必須死守美元、軍事、科技的三位一體霸權。</p>
+                    </div>
+                    <div class="bg-slate-800/50 p-4 rounded-lg border border-red-500/30">
+                        <h3 class="text-red-400 font-bold mb-2 text-lg"><i class="fa-solid fa-flag-checkered"></i> 中國的第一原則</h3>
+                        <p>確保政權穩定生存，經濟與科技發展不能受制於西方，並試圖建立一套以中國為核心的多極化秩序。</p>
+                    </div>
+                </div>
+
+                <div class="space-y-5 mt-4">
+                    <div class="border-l-4 border-brand-accent pl-4">
+                        <h3 class="text-white font-bold text-lg mb-1">起點：為什麼會爆發晶片戰？</h3>
+                        <p>美國意識到中國在AI、5G與高階運算上的進展，已經直接威脅到未來的科技與軍事絕對優勢。中國龐大的補貼正在複製當年擊潰美國本土製造業的模式。</p>
+                    </div>
+
+                    <div class="border-l-4 border-brand-accent pl-4">
+                        <h3 class="text-white font-bold text-lg mb-1">雙方真正的目的到底是什麼？</h3>
+                        <ul class="list-disc pl-5 space-y-2 mt-2">
+                            <li><span class="text-blue-300 font-semibold">美國的真目的：</span>其實不是真的要自己製造所有晶片，而是要「精準破壞」中國取得下個世代運算能力的速度，把對手鎖死在低階製造的範圍內。</li>
+                            <li><span class="text-red-300 font-semibold">中國的真目的：</span>爭取時間。用盡一切手段在被完全封死之前，硬砸出一條哪怕成本極高、良率極低，但完全不需要依賴美國技術的本土供應鏈。</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-brand-accent pl-4">
+                        <h3 class="text-white font-bold text-lg mb-1">為了達成目的，隱藏與公開了什麼？</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
+                                <span class="block text-xs text-slate-400 mb-1">美國視角</span>
+                                <p>公開說這是為了「國家安全」與「供應鏈韌性」。隱藏的是，就算台積電去美國設廠成本變高也無所謂，重點是把最先進的實體技術抓在自己國家的土地上。</p>
+                            </div>
+                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
+                                <span class="block text-xs text-slate-400 mb-1">中國視角</span>
+                                <p>公開呼籲全球化與自由貿易，抗議技術霸權。隱藏的是內部正進行極度殘酷的資源傾注，準備用成熟製程產能淹沒全球市場當作談判籌碼。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-l-4 border-brand-accent pl-4">
+                        <h3 class="text-white font-bold text-lg mb-1">戰略性的推動與安排</h3>
+                        <p>美國盤點手上的牌，發現自己掌握了「軟體授權」與「金融制裁」。於是把盟友分類，強勢聯手荷蘭(ASML光刻機)、日本(化學材料)、台灣(高階代工)。透過長臂管轄權強迫這三個節點國家配合出口管制，直接切斷對手發展高階晶片的氧氣管。</p>
+                    </div>
+
+                    <div class="border-l-4 border-brand-accent pl-4">
+                        <h3 class="text-white font-bold text-lg mb-1">最終結果</h3>
+                        <p>半導體是極度複雜的產業，沒有單一國家能獨立完成。當美、日、荷、台聯手，中國短期內確實無法取得先進設備，發展嚴重受挫。美國初步達成了拖慢對手腳步的目的，但也逼迫對方放棄幻想走向完全自主研發。全球科技供應鏈正式碎裂成兩套不同的系統。</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -669,6 +741,13 @@
         const tooltip = document.getElementById('tooltip');
         const loadingScreen = document.getElementById('loading');
 
+        // 沙盤推演 Modal 元素
+        const sandboxModal = document.getElementById('sandbox-modal');
+        const openSandboxBtn = document.getElementById('open-sandbox-btn');
+        const closeSandboxBtn = document.getElementById('close-sandbox-btn');
+        const sandboxBackdrop = document.getElementById('sandbox-backdrop');
+        const sandboxContentBox = document.getElementById('sandbox-content-box');
+
         let selectedCountryId = null;
 
         const width = mapContainer.clientWidth;
@@ -705,6 +784,34 @@
             );
             // Optional: reset selection on zoom reset
         });
+
+        // 打開沙盤 Modal
+        openSandboxBtn.addEventListener('click', () => {
+            sandboxModal.classList.remove('hidden');
+            sandboxModal.classList.add('flex');
+            // 延遲執行以確保過渡動畫能正常運作
+            setTimeout(() => {
+                sandboxModal.classList.remove('opacity-0');
+                sandboxModal.classList.add('opacity-100');
+                sandboxContentBox.classList.remove('scale-95');
+                sandboxContentBox.classList.add('scale-100');
+            }, 10);
+        });
+
+        // 關閉沙盤 Modal
+        function closeSandbox() {
+            sandboxModal.classList.remove('opacity-100');
+            sandboxModal.classList.add('opacity-0');
+            sandboxContentBox.classList.remove('scale-100');
+            sandboxContentBox.classList.add('scale-95');
+            setTimeout(() => {
+                sandboxModal.classList.add('hidden');
+                sandboxModal.classList.remove('flex');
+            }, 300);
+        }
+
+        closeSandboxBtn.addEventListener('click', closeSandbox);
+        sandboxBackdrop.addEventListener('click', closeSandbox);
 
         closePanelBtn.addEventListener('click', () => {
             infoPanel.classList.add('translate-y-full');
