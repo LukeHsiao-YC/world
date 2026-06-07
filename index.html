@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>全球大國博弈戰略地圖</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',
+                            panel: '#1e293b',
+                            accent: '#38bdf8',
+                            warning: '#fbbf24',
+                            danger: '#f87171'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        
+        .country {
+            fill: #334155;
+            stroke: #0f172a;
+            stroke-width: 0.5px;
+            transition: fill 0.3s, opacity 0.3s;
+            cursor: pointer;
+        }
+        
+        .country:hover {
+            fill: #475569;
+        }
+        
+        /* Top 30 Countries default style */
+        .country.top-30 {
+            fill: #1e3a8a;
+            stroke: #60a5fa;
+            stroke-width: 0.5px;
+        }
+        
+        .country.top-30:hover {
+            fill: #3b82f6;
+            filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.8));
+        }
+
+        /* Selected Country */
+        .country.selected {
+            fill: #38bdf8 !important;
+            stroke: #fff !important;
+            stroke-width: 1.5px !important;
+            filter: drop-shadow(0 0 8px rgba(56, 189, 248, 1));
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: absolute;
+            opacity: 0;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #38bdf8;
+            border-radius: 8px;
+            padding: 8px 12px;
+            pointer-events: none;
+            font-size: 14px;
+            z-index: 100;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            transition: opacity 0.2s;
+        }
+
+        /* Scrollbar styling for panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Loading spinner */
+        .loader {
+            border: 4px solid #1e293b;
+            border-top: 4px solid #38bdf8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- Loading Screen -->
+    <div id="loading" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-brand-dark">
+        <div class="loader mb-4"></div>
+        <h2 class="text-xl font-semibold text-brand-accent animate-pulse">載入全球戰略圖資中...</h2>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip"></div>
+
+    <!-- Main Map Area -->
+    <div class="relative flex-1 h-[60vh] md:h-screen w-full overflow-hidden flex flex-col">
+        <!-- Header -->
+        <header class="absolute top-0 left-0 right-0 p-4 z-10 pointer-events-none flex justify-between items-start">
+            <div class="pointer-events-auto bg-brand-dark/80 backdrop-blur-md p-3 rounded-lg border border-slate-700 shadow-lg">
+                <h1 class="text-xl md:text-2xl font-bold text-white tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-globe text-brand-accent"></i>
+                    大國博弈戰略地圖
+                </h1>
+                <p class="text-xs text-slate-400 mt-1">互動式地圖：可拖曳、縮放。點擊發光國家查看分析</p>
+            </div>
+            
+            <div class="pointer-events-auto flex gap-2">
+                <button id="reset-view" class="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition shadow border border-slate-600" title="重置視角">
+                    <i class="fa-solid fa-compress"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- D3 Map Container -->
+        <div id="map" class="w-full h-full bg-[#020617] cursor-grab active:cursor-grabbing"></div>
+    </div>
+
+    <!-- Info Panel (Right sidebar on desktop, bottom sheet/modal on mobile) -->
+    <div id="info-panel" class="glass-panel absolute md:relative bottom-0 left-0 right-0 md:w-[400px] lg:w-[450px] h-[45vh] md:h-screen transform translate-y-full md:translate-y-0 transition-transform duration-300 ease-in-out z-40 overflow-y-auto flex flex-col border-t md:border-t-0 shadow-2xl">
+        
+        <!-- Mobile close/drag handle -->
+        <div class="md:hidden w-full flex justify-center py-2 cursor-pointer" id="close-panel-btn">
+            <div class="w-12 h-1.5 bg-slate-500 rounded-full"></div>
+        </div>
+
+        <div id="panel-content" class="p-6 flex-1 hidden flex-col gap-6">
+            <!-- Header Section -->
+            <div class="border-b border-slate-700 pb-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span id="country-continent" class="text-xs font-semibold text-brand-accent uppercase tracking-widest bg-brand-accent/10 px-2 py-1 rounded"></span>
+                        <h2 id="country-name" class="text-3xl font-bold mt-2 text-white"></h2>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400">軍力排名</span>
+                        <div id="country-military" class="text-2xl font-bold text-brand-warning"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-users mr-1"></i>總人口</div>
+                    <div id="country-pop" class="font-semibold text-sm"></div>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-sack-dollar mr-1"></i>GDP</div>
+                    <div id="country-gdp" class="font-semibold text-sm"></div>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-coins mr-1"></i>人均 GNI</div>
+                    <div id="country-gni" class="font-semibold text-sm"></div>
+                </div>
+                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <div class="text-xs text-slate-400 mb-1"><i class="fa-solid fa-file-invoice-dollar mr-1"></i>國家債務比</div>
+                    <div id="country-debt" class="font-semibold text-sm text-brand-danger"></div>
+                </div>
+            </div>
+
+            <!-- Core Industry -->
+            <div class="bg-brand-accent/5 border border-brand-accent/20 p-4 rounded-lg">
+                <h3 class="text-sm font-semibold text-brand-accent mb-2"><i class="fa-solid fa-microchip mr-2"></i>核心產業與技術</h3>
+                <p id="country-tech" class="text-sm leading-relaxed"></p>
+            </div>
+
+            <!-- 5 Core Abilities Analysis -->
+            <div class="flex flex-col gap-4 pb-8">
+                <h3 class="text-lg font-bold text-white border-l-4 border-brand-warning pl-2 mt-2">戰略總成績單</h3>
+                
+                <div class="analysis-block">
+                    <h4 class="text-sm font-semibold text-green-400 mb-1"><i class="fa-solid fa-star mr-1"></i>最想得到的能力</h4>
+                    <ul id="analysis-desired" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-green-400/50"></ul>
+                </div>
+                <div class="analysis-block">
+                    <h4 class="text-sm font-semibold text-yellow-400 mb-1"><i class="fa-solid fa-shield-halved mr-1"></i>絕對不能失去的能力</h4>
+                    <ul id="analysis-cannot-lose" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-yellow-400/50"></ul>
+                </div>
+                <div class="analysis-block">
+                    <h4 class="text-sm font-semibold text-brand-accent mb-1"><i class="fa-solid fa-bolt mr-1"></i>已經擁有的最強能力</h4>
+                    <ul id="analysis-strongest" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-brand-accent/50"></ul>
+                </div>
+                <div class="analysis-block">
+                    <h4 class="text-sm font-semibold text-brand-danger mb-1"><i class="fa-solid fa-heart-crack mr-1"></i>最脆弱的弱點因素</h4>
+                    <ul id="analysis-weakness" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-brand-danger/50"></ul>
+                </div>
+                <div class="analysis-block">
+                    <h4 class="text-sm font-semibold text-purple-400 mb-1"><i class="fa-solid fa-gem mr-1"></i>長年累積的自信能力</h4>
+                    <ul id="analysis-confident" class="list-disc pl-5 text-sm text-slate-300 space-y-1 marker:text-purple-400/50"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="panel-empty" class="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
+            <i class="fa-solid fa-map-location-dot text-6xl text-slate-600 mb-4"></i>
+            <h3 class="text-xl font-semibold text-slate-300">選擇一個國家</h3>
+            <p class="text-sm text-slate-500 mt-2">請在地圖上點擊發光的國家，以查看該國的深度戰略情報與數據。</p>
+        </div>
+    </div>
+
+    <script>
+        // 戰略資料庫 Dataset
+        const database = {
+            "USA": {
+                name: "美國",
+                continent: "北美洲",
+                pop: "3.4億",
+                gdp: "28.0兆",
+                gni: "80,000",
+                debt: "約120%",
+                tech: "軟體、AI、航太、金融、高階晶片設計",
+                military: "1",
+                analysis: {
+                    desired: ["絕對安全的國內硬體製造鏈", "對稀土等關鍵礦物的控制力", "讓全球南方國家完全選邊站的影響力"],
+                    cannotLose: ["美元作為全球儲備貨幣的霸權", "全球頂尖人才的吸引力", "絕對的海空軍優勢"],
+                    strongest: ["軟體與AI底層邏輯的定義權", "將金融系統武器化(制裁)的能力", "資本市場的創新變現力"],
+                    weakness: ["基礎製造業嚴重空洞化與工人斷層", "國內政治極度撕裂與民粹化", "龐大且難以逆轉的政府債務"],
+                    confident: ["頂尖的高等教育與基礎科學研究體系", "好萊塢與媒體的強大文化輸出", "深厚的航太與軍工複合體底蘊"]
+                }
+            },
+            "China": {
+                name: "中國",
+                continent: "東北亞",
+                pop: "14.1億",
+                gdp: "18.5兆",
+                gni: "13,000",
+                debt: "約80%",
+                tech: "基礎製造、電動車、無人機、綠能、網通",
+                military: "3",
+                analysis: {
+                    desired: ["高階半導體與設備的自主製造力", "突破美國第一島鏈的軍事與地緣優勢", "人民幣結算的國際化"],
+                    cannotLose: ["龐大的國內消費市場與內循環", "作為世界工廠的完整供應鏈聚落", "能源與糧食的進口安全"],
+                    strongest: ["強大且具成本優勢的中低階製造力", "電動車與電池的完整產業鏈", "由國家補貼推動的基礎建設工程力"],
+                    weakness: ["核心關鍵技術極容易被掐脖子", "快速惡化的高齡化與少子化", "房地產泡沫與地方債務危機"],
+                    confident: ["龐大的工程師與技工紅利", "對稀土與關鍵金屬冶煉的壟斷", "高效率的鐵路與港口物流網路"]
+                }
+            },
+            "Japan": {
+                name: "日本",
+                continent: "東北亞",
+                pop: "1.2億",
+                gdp: "4.1兆",
+                gni: "42,000",
+                debt: "約250%",
+                tech: "半導體材料、精密設備、光學、汽車",
+                military: "7",
+                analysis: {
+                    desired: ["擺脫高齡化帶來的勞動力枯竭", "地緣政治上的完全正常化軍隊", "重返半導體製造榮耀"],
+                    cannotLose: ["在全球供應鏈中不可取代的材料與設備地位", "日圓的避險貨幣地位", "與美國的安保條約"],
+                    strongest: ["基礎化學、特殊材料與光學設備的絕對寡占", "極高良率的精密製造工藝", "強大的海外資產與投資收益"],
+                    weakness: ["能源幾乎百分之百仰賴進口", "人口結構極度老化", "數位化轉型與軟體思維嚴重落後"],
+                    confident: ["工匠精神與無可挑剔的品質控管", "全球佈局的商社情報與投資網絡", "強大的國民儲蓄與社會穩定"]
+                }
+            },
+            "Taiwan": {
+                name: "台灣",
+                continent: "東北亞",
+                pop: "2,300萬",
+                gdp: "0.8兆",
+                gni: "35,000",
+                debt: "約30%",
+                tech: "晶圓代工(高階製程)、IC設計、電子代工",
+                military: "24",
+                analysis: {
+                    desired: ["國際政治上的正式承認與安全保障", "穩定的綠能與水電基礎設施", "軟體與品牌的全球影響力"],
+                    cannotLose: ["先進製程晶圓代工的絕對壟斷地位", "美國與盟友的安全承諾", "高素質且耐勞的理工人才"],
+                    strongest: ["台積電與密不可分的半導體聚落", "極致的成本控制與良率管理", "快速量產最新科技產品的彈性"],
+                    weakness: ["兩岸地緣政治衝突的極高風險", "能源與原物料完全仰賴海運輸入", "產業過度集中於半導體單一領域"],
+                    confident: ["電子代工與硬體製造的完整生態系", "靈活且反應快速的中小企業供應鏈", "高水準的醫療保健與健保體系"]
+                }
+            },
+            "Germany": {
+                name: "德國",
+                continent: "歐洲",
+                pop: "8,300萬",
+                gdp: "4.5兆",
+                gni: "53,000",
+                debt: "約65%",
+                tech: "汽車工業、精密機械、化工、高端設備",
+                military: "19",
+                analysis: {
+                    desired: ["擺脫對俄羅斯能源的歷史依賴", "數位化轉型與AI產業鏈的建立", "整合的歐洲防務力量"],
+                    cannotLose: ["在歐盟內部的經濟主導地位", "高階精密機械的出口競爭力", "龐大的歐盟內部零關稅市場"],
+                    strongest: ["世界頂級的汽車引擎與底盤工藝", "隱形冠軍(中小企業)的強大技術壁壘", "頂尖的基礎化學與製藥能力"],
+                    weakness: ["嚴重的勞動力短缺與官僚體系", "能源成本飆升削弱製造業競爭力", "地緣政治下對中國市場的過度依賴"],
+                    confident: ["嚴謹的雙軌制技職教育體系", "完善的社會福利與勞資協商機制", "深厚的百年工業底蘊"]
+                }
+            },
+            "India": {
+                name: "印度",
+                continent: "南亞",
+                pop: "14.3億",
+                gdp: "3.9兆",
+                gni: "2,500",
+                debt: "約80%",
+                tech: "軟體代工、製藥、基礎農工、IT服務",
+                military: "4",
+                analysis: {
+                    desired: ["取代中國成為世界基礎製造工廠", "聯合國安理會常任理事國席位", "完善的全國交通與電力基礎設施"],
+                    cannotLose: ["龐大且年輕的人口紅利", "不結盟的外交戰略模糊空間", "西方世界對抗中國的扶持"],
+                    strongest: ["全球最大的IT外包與軟體服務聚落", "極低成本的學名藥製造能力", "英語系國家的溝通優勢"],
+                    weakness: ["極度落後的基礎建設與官僚腐敗", "複雜的種姓制度與社會階級隔閡", "各邦法規不一導致經商困難"],
+                    confident: ["輸出全球科技巨頭CEO的管理人才", "不對稱的太空與核武技術", "龐大且快速增長的內需消費市場"]
+                }
+            },
+            "UK": {
+                name: "英國",
+                continent: "歐洲",
+                pop: "6,800萬",
+                gdp: "3.5兆",
+                gni: "49,000",
+                debt: "約100%",
+                tech: "金融服務、製藥、航太發動機、生技",
+                military: "6",
+                analysis: {
+                    desired: ["脫歐後全新的全球貿易協定", "維持倫敦作為全球金融中心的地位", "AI與前瞻科技的領導權"],
+                    cannotLose: ["英語文化的全球話語權", "美國的特殊盟友關係", "頂尖的高等教育樞紐地位"],
+                    strongest: ["極度發達的金融衍生品與清算市場", "航太發動機(勞斯萊斯)核心技術", "基礎科學與醫藥研發能力"],
+                    weakness: ["脫歐造成的供應鏈斷鏈與勞工短缺", "蘇格蘭獨立等內部政治撕裂", "基礎製造業幾乎完全流失"],
+                    confident: ["健全的普通法系與產權保護", "強大的軟實力(音樂、影視、文學)", "悠久的外交手腕與情報網絡"]
+                }
+            },
+            "Russia": {
+                name: "俄羅斯",
+                continent: "歐亞",
+                pop: "1.4億",
+                gdp: "2.0兆",
+                gni: "14,000",
+                debt: "約20%",
+                tech: "原油、天然氣、軍工、小麥",
+                military: "2",
+                analysis: {
+                    desired: ["打破西方的全面經濟與金融制裁", "控制東歐地緣政治緩衝區", "高科技零組件的進口管道"],
+                    cannotLose: ["龐大的核武庫與威懾力", "對歐洲能源市場(尤其是天然氣)的影響力", "政權內部的絕對穩定"],
+                    strongest: ["取之不盡的原油、天然氣與金屬礦產", "強大的駭客網路與資訊戰能力", "傳統重型軍武的製造產能"],
+                    weakness: ["極度依賴資源出口的單一脆弱經濟", "嚴重的人口流失與高齡化", "民生工業與高科技製造全面落後"],
+                    confident: ["廣袤戰略縱深帶來的防禦優勢", "全球最頂尖的航太與火箭發射技術", "自給自足的糧食生產能力(小麥)"]
+                }
+            },
+            // 提供部分通用資料避免點擊出錯
+            "France": { name: "法國", continent: "歐洲", pop: "6,800萬", gdp: "3.1兆", gni: "44,000", debt: "約110%", tech: "核能、航太、精品、軍工", military: "11", analysis: { desired: ["歐洲戰略自主","AI技術突破","再工業化"], cannotLose: ["核能自主","非洲影響力","農業補貼"], strongest: ["核電技術","航太(空中巴士)","頂級精品品牌"], weakness: ["僵化的勞動法","社會罷工頻繁","政府債務高"], confident: ["文化影響力","軍工體系","高鐵基建"] } },
+            "Australia": { name: "澳洲", continent: "南太平洋", pop: "2,600萬", gdp: "1.7兆", gni: "60,000", debt: "約55%", tech: "鐵礦砂、煤炭、農牧", military: "16", analysis: { desired: ["供應鏈多元化","核動力潛艦","綠能轉型"], cannotLose: ["美澳同盟","海上生命線","資源定價權"], strongest: ["礦產出口","高水準農產","宜居環境"], weakness: ["對單一市場(中國)出口過度依賴","氣候變遷衝擊","製造業空洞"], confident: ["豐富天然資源","穩定的金融體系","強大教育出口"] } },
+            "South Korea": { name: "韓國", continent: "東北亞", pop: "5,100萬", gdp: "1.7兆", gni: "35,000", debt: "約55%", tech: "記憶體晶片、造船、消費電子", military: "5", analysis: { desired: ["擺脫北韓威脅","突破高階晶片封裝","軟體實力"], cannotLose: ["美韓同盟","財閥競爭力","出口市場"], strongest: ["記憶體壟斷","文化輸出(K-pop)","造船技術"], weakness: ["全球最低生育率","財閥壟斷經濟","地緣高風險"], confident: ["極高的工程效率","造星與文化產業","重工業基礎"] } }
+        };
+
+        // Name Mapper to handle GeoJSON country names matching our Database keys
+        const nameMapper = {
+            "United States of America": "USA",
+            "USA": "USA",
+            "China": "China",
+            "Japan": "Japan",
+            "Taiwan": "Taiwan",
+            "Germany": "Germany",
+            "India": "India",
+            "United Kingdom": "UK",
+            "England": "UK",
+            "Russia": "Russia",
+            "France": "France",
+            "Australia": "Australia",
+            "South Korea": "South Korea",
+            "Republic of Korea": "South Korea",
+            "Brazil": "Brazil",
+            "Italy": "Italy",
+            "Canada": "Canada"
+            // Others can be added. If not mapped and not in database, click does nothing.
+        };
+
+        // DOM Elements
+        const mapContainer = document.getElementById('map');
+        const infoPanel = document.getElementById('info-panel');
+        const panelContent = document.getElementById('panel-content');
+        const panelEmpty = document.getElementById('panel-empty');
+        const closePanelBtn = document.getElementById('close-panel-btn');
+        const tooltip = document.getElementById('tooltip');
+        const loadingScreen = document.getElementById('loading');
+
+        // State
+        let selectedCountryId = null;
+
+        // D3 Setup
+        const width = mapContainer.clientWidth;
+        const height = mapContainer.clientHeight;
+
+        const svg = d3.select("#map")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .attr("preserveAspectRatio", "xMidYMid meet");
+
+        const g = svg.append("g");
+
+        // Map Projection
+        const projection = d3.geoMercator()
+            .scale(width / 6.5)
+            .translate([width / 2, height / 1.5]);
+
+        const path = d3.geoPath().projection(projection);
+
+        // Zoom Behavior
+        const zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        // Reset view button
+        document.getElementById('reset-view').addEventListener('click', () => {
+            svg.transition().duration(750).call(
+                zoom.transform, 
+                d3.zoomIdentity, 
+                d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
+            );
+        });
+
+        // Mobile panel close handler
+        closePanelBtn.addEventListener('click', () => {
+            infoPanel.classList.add('translate-y-full');
+            // Remove selection highlight
+            d3.selectAll('.country').classed('selected', false);
+            selectedCountryId = null;
+        });
+
+        // Load GeoJSON Data
+        const geoDataUrl = "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson";
+
+        d3.json(geoDataUrl).then(data => {
+            // Remove Loading Screen
+            loadingScreen.classList.add('hidden');
+
+            // Draw Map
+            g.selectAll("path")
+                .data(data.features)
+                .enter()
+                .append("path")
+                .attr("class", d => {
+                    let geoName = d.properties.name;
+                    let mappedKey = nameMapper[geoName] || geoName;
+                    // 如果存在於我們的資料庫，加上 top-30 class 使其發光
+                    if (database[mappedKey]) {
+                        return "country top-30";
+                    }
+                    return "country";
+                })
+                .attr("d", path)
+                .attr("id", d => d.id || d.properties.name.replace(/\s+/g, ''))
+                .on("mouseover", function(event, d) {
+                    let geoName = d.properties.name;
+                    let mappedKey = nameMapper[geoName] || geoName;
+                    let displayInfo = database[mappedKey] ? `${database[mappedKey].name} (點擊查看情報)` : geoName;
+
+                    tooltip.innerHTML = displayInfo;
+                    tooltip.style.opacity = 1;
+                })
+                .on("mousemove", function(event) {
+                    tooltip.style.left = (event.pageX + 15) + "px";
+                    tooltip.style.top = (event.pageY - 20) + "px";
+                })
+                .on("mouseout", function() {
+                    tooltip.style.opacity = 0;
+                })
+                .on("click", function(event, d) {
+                    let geoName = d.properties.name;
+                    let mappedKey = nameMapper[geoName] || geoName;
+                    
+                    if (database[mappedKey]) {
+                        // Highlight selection
+                        d3.selectAll('.country').classed('selected', false);
+                        d3.select(this).classed('selected', true);
+                        selectedCountryId = mappedKey;
+
+                        // Pan map to country (optional, kept simple for UX)
+                        // Update Data Panel
+                        updatePanel(database[mappedKey]);
+                    }
+                });
+
+        }).catch(err => {
+            console.error("Error loading map data:", err);
+            loadingScreen.innerHTML = `<h2 class="text-xl text-brand-danger">地圖載入失敗，請確認網路連線。</h2>`;
+        });
+
+        // UI Update Function
+        function updatePanel(data) {
+            // Show panel content, hide empty state
+            panelEmpty.classList.add('hidden');
+            panelContent.classList.remove('hidden');
+            panelContent.classList.add('flex');
+
+            // Mobile slide up
+            infoPanel.classList.remove('translate-y-full');
+
+            // Populate Text Data
+            document.getElementById('country-name').innerText = data.name;
+            document.getElementById('country-continent').innerText = data.continent;
+            document.getElementById('country-pop').innerText = data.pop;
+            document.getElementById('country-gdp').innerText = `${data.gdp} 美元`;
+            document.getElementById('country-gni').innerText = `${data.gni} 美元`;
+            document.getElementById('country-debt').innerText = data.debt;
+            document.getElementById('country-tech').innerText = data.tech;
+            document.getElementById('country-military').innerText = `No.${data.military}`;
+
+            // Populate Analysis Lists
+            populateList('analysis-desired', data.analysis.desired);
+            populateList('analysis-cannot-lose', data.analysis.cannotLose);
+            populateList('analysis-strongest', data.analysis.strongest);
+            populateList('analysis-weakness', data.analysis.weakness);
+            populateList('analysis-confident', data.analysis.confident);
+        }
+
+        function populateList(elementId, items) {
+            const ul = document.getElementById(elementId);
+            ul.innerHTML = '';
+            if(!items || items.length === 0) {
+                ul.innerHTML = '<li class="text-slate-500 italic">無詳細資料</li>';
+                return;
+            }
+            items.forEach(item => {
+                const li = document.createElement('li');
+                li.innerText = item;
+                ul.appendChild(li);
+            });
+        }
+
+        // Handle resize window event to keep map scaling properly
+        window.addEventListener('resize', () => {
+            const w = mapContainer.clientWidth;
+            const h = mapContainer.clientHeight;
+            svg.attr("viewBox", `0 0 ${w} ${h}`);
+        });
+
+    </script>
+</body>
+</html>
