@@ -1,162 +1,405 @@
-<!-- 請將這段程式碼替換掉原本的 <div id="sandbox-modal">...</div> 區塊 -->
-<!-- 以及將最下方的頁籤切換 JS 邏輯加入到你的 <script> 標籤中 -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全球大國博弈戰略地圖</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',    // slate-900
+                            card: '#1e293b',    // slate-800
+                            accent: '#38bdf8',  // sky-400
+                            warning: '#fbbf24', // amber-400
+                            danger: '#f87171',  // red-400
+                            success: '#34d399'  // emerald-400
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; overflow: hidden; background-color: #020617; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .country-path {
+            transition: fill 0.3s ease, opacity 0.3s ease, stroke-width 0.3s ease;
+            cursor: pointer;
+        }
+        .country-path:hover {
+            opacity: 0.8;
+            stroke: #fff;
+            stroke-width: 1.5px;
+        }
+        
+        /* 模糊背景遮罩 */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-    <!-- 戰略沙盤推演 Modal (已升級為多頁籤版本) -->
-    <div id="sandbox-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="sandbox-backdrop"></div>
-        <div class="relative w-full max-w-4xl max-h-[90vh] bg-[#1e293b] border border-slate-600 rounded-xl shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="sandbox-content-box">
+        /* Modal 滾動條美化 */
+        #sandbox-content-box ::-webkit-scrollbar { width: 8px; }
+        #sandbox-content-box ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-slate-200 h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- 左側地圖區塊 -->
+    <div class="relative flex-1 h-[60vh] md:h-full overflow-hidden" id="map-container">
+        
+        <!-- 標題與圖例 -->
+        <header class="absolute top-0 left-0 w-full p-4 md:p-6 z-10 flex flex-col md:flex-row justify-between items-start md:items-center pointer-events-none gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-white tracking-wider flex items-center gap-3 drop-shadow-lg">
+                    <i class="fa-solid fa-globe text-brand-accent animate-pulse"></i> 全球大國博弈戰略地圖
+                </h1>
+                <div class="mt-2 bg-brand-dark/80 backdrop-blur-md p-2 rounded-lg border border-slate-700 shadow-lg flex gap-3 text-xs w-max pointer-events-auto">
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-brand-accent rounded-full inline-block shadow-[0_0_5px_#38bdf8]"></span> 關注目標</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-brand-success/30 border border-brand-success rounded-full inline-block shadow-[0_0_5px_#34d399]"></span> 戰略盟友</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-brand-danger/30 border border-brand-danger rounded-full inline-block shadow-[0_0_5px_#f87171]"></span> 相似/競爭</div>
+                </div>
+            </div>
             
-            <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-[#0f172a]">
-                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-chess-knight text-brand-warning"></i> 最高層級換位思考：大國博弈沙盤推演
+            <div class="pointer-events-auto flex gap-2">
+                <button id="open-sandbox-btn" class="bg-brand-dark/80 hover:bg-slate-800 text-brand-warning px-4 py-2 rounded-lg transition shadow-lg border border-brand-warning/50 text-sm font-semibold flex items-center gap-2 backdrop-blur-sm" title="開啟最高層級沙盤推演">
+                    <i class="fa-solid fa-chess-knight text-lg"></i>
+                    <span class="hidden md:inline">最高機密：戰略推演</span>
+                </button>
+                <button id="reset-view" class="bg-brand-dark/80 hover:bg-slate-800 text-white p-2 rounded-lg transition shadow-lg border border-slate-600 backdrop-blur-sm" title="重置視角">
+                    <i class="fa-solid fa-compress"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="map" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+        
+        <!-- 載入中遮罩 -->
+        <div id="loading" class="absolute inset-0 bg-[#020617] z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-brand-accent mb-4"></i>
+            <p class="text-slate-400 font-medium tracking-widest">載入全球地緣數據中...</p>
+        </div>
+
+        <!-- 浮動提示 -->
+        <div id="tooltip" class="absolute hidden bg-brand-dark/95 border border-slate-600 text-white px-3 py-2 rounded shadow-xl text-sm pointer-events-none z-40 backdrop-blur-sm transform -translate-x-1/2 -translate-y-full mt-[-10px]"></div>
+    </div>
+
+    <!-- 右側資訊面板 -->
+    <div id="info-panel" class="glass-panel w-full md:w-[400px] lg:w-[450px] h-[40vh] md:h-full absolute bottom-0 md:relative z-20 flex flex-col transition-transform duration-300 translate-y-full md:translate-y-0 shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
+        
+        <!-- 尚未選擇國家時的空狀態 -->
+        <div id="panel-empty" class="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
+            <i class="fa-solid fa-satellite-dish text-6xl text-slate-600 mb-6 animate-pulse"></i>
+            <h3 class="text-xl font-semibold text-slate-300">情報系統待命中</h3>
+            <p class="text-sm text-slate-500 mt-2">請在地圖上點擊<span class="text-brand-accent">發光的國家</span>，以調閱該國的深度戰略情報、核心能力與關係網路。</p>
+        </div>
+
+        <!-- 國家資訊內容區 -->
+        <div id="panel-content" class="hidden flex-col h-full overflow-hidden">
+            <!-- Header -->
+            <div class="p-5 border-b border-slate-700 bg-slate-800/50 flex justify-between items-start shrink-0">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <span id="country-region" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300"></span>
+                        <span id="country-gdp-rank" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-warning/20 text-brand-warning border border-brand-warning/30"><i class="fa-solid fa-trophy mr-1"></i>GDP 排行</span>
+                    </div>
+                    <h2 id="country-name" class="text-3xl font-bold text-white tracking-wide"></h2>
+                </div>
+                <button id="close-panel-btn" class="md:hidden text-slate-400 hover:text-white text-2xl p-2 -mr-2 -mt-2">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                
+                <!-- 基礎數據 Grid -->
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1"><i class="fa-solid fa-coins mr-1"></i>GDP 規模</div>
+                        <div class="font-bold text-white text-lg"><span id="val-gdp"></span> <span class="text-xs font-normal text-slate-400">兆美元</span></div>
+                    </div>
+                    <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1"><i class="fa-solid fa-users mr-1"></i>總人口</div>
+                        <div class="font-bold text-white text-lg"><span id="val-pop"></span></div>
+                    </div>
+                    <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1"><i class="fa-solid fa-wallet mr-1"></i>人均 GNI</div>
+                        <div class="font-bold text-white text-lg"><span id="val-gni"></span> <span class="text-xs font-normal text-slate-400">美元</span></div>
+                    </div>
+                    <div class="bg-slate-800/60 p-3 rounded-lg border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1"><i class="fa-solid fa-jet-fighter mr-1"></i>全球軍力排名</div>
+                        <div class="font-bold text-white text-lg">第 <span id="val-mil"></span> <span class="text-xs font-normal text-slate-400">名</span></div>
+                    </div>
+                </div>
+
+                <!-- 核心產業 -->
+                <div>
+                    <h3 class="text-brand-accent font-bold mb-2 text-sm uppercase tracking-wider flex items-center gap-2 border-b border-slate-700 pb-1">
+                        <i class="fa-solid fa-microchip"></i> 核心優勢產業
+                    </h3>
+                    <p id="val-industry" class="text-slate-300 text-sm leading-relaxed"></p>
+                </div>
+
+                <!-- 五大戰略分析 -->
+                <div class="space-y-4">
+                    <h3 class="text-brand-warning font-bold mb-2 text-sm uppercase tracking-wider flex items-center gap-2 border-b border-slate-700 pb-1 mt-2">
+                        <i class="fa-solid fa-brain"></i> 戰略底層邏輯
+                    </h3>
+                    
+                    <div class="bg-slate-800/40 p-3 rounded-lg border-l-2 border-blue-400">
+                        <div class="text-blue-400 text-xs font-bold mb-1"><i class="fa-solid fa-hand-holding-heart mr-1"></i>最想得到的能力</div>
+                        <ul id="list-wants" class="list-disc pl-4 text-sm text-slate-300 space-y-1"></ul>
+                    </div>
+                    
+                    <div class="bg-slate-800/40 p-3 rounded-lg border-l-2 border-red-400">
+                        <div class="text-red-400 text-xs font-bold mb-1"><i class="fa-solid fa-shield-halved mr-1"></i>絕對不能失去</div>
+                        <ul id="list-cant-lose" class="list-disc pl-4 text-sm text-slate-300 space-y-1"></ul>
+                    </div>
+
+                    <div class="bg-slate-800/40 p-3 rounded-lg border-l-2 border-brand-success">
+                        <div class="text-brand-success text-xs font-bold mb-1"><i class="fa-solid fa-crown mr-1"></i>已擁有的最強能力</div>
+                        <ul id="list-has" class="list-disc pl-4 text-sm text-slate-300 space-y-1"></ul>
+                    </div>
+
+                    <div class="bg-slate-800/40 p-3 rounded-lg border-l-2 border-orange-400">
+                        <div class="text-orange-400 text-xs font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>致命弱點因素</div>
+                        <ul id="list-weakness" class="list-disc pl-4 text-sm text-slate-300 space-y-1"></ul>
+                    </div>
+
+                    <div class="bg-slate-800/40 p-3 rounded-lg border-l-2 border-purple-400">
+                        <div class="text-purple-400 text-xs font-bold mb-1"><i class="fa-solid fa-anchor mr-1"></i>長年累積的底氣</div>
+                        <ul id="list-confidence" class="list-disc pl-4 text-sm text-slate-300 space-y-1"></ul>
+                    </div>
+                </div>
+
+                <!-- 戰略關係網 (互動按鈕) -->
+                <div class="pt-2">
+                    <h3 class="text-slate-400 font-bold mb-3 text-sm uppercase tracking-wider flex items-center gap-2 border-b border-slate-700 pb-1">
+                        <i class="fa-solid fa-network-wired"></i> 地緣關係網路
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="text-xs text-brand-success mb-1">戰略盟友 / 依賴對象：</div>
+                            <div id="tags-allies" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-brand-danger mb-1">競爭對手 / 摩擦熱點：</div>
+                            <div id="tags-competitors" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="h-6"></div> <!-- 底部留白 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 戰略沙盤推演 Modal (多頁籤版本) -->
+    <div id="sandbox-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity duration-300">
+        <!-- 模糊背景 -->
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" id="sandbox-backdrop"></div>
+        
+        <!-- Modal 內容框 -->
+        <div class="relative w-full max-w-5xl max-h-[90vh] bg-[#1e293b] border border-slate-600 rounded-xl shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="sandbox-content-box">
+            
+            <!-- 標題列 -->
+            <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-[#0f172a] shrink-0">
+                <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
+                    <span class="bg-brand-warning/20 text-brand-warning p-2 rounded-lg"><i class="fa-solid fa-chess-knight"></i></span> 
+                    上帝視角：大國博弈沙盤推演
                 </h2>
-                <button id="close-sandbox-btn" class="text-slate-400 hover:text-white transition text-3xl leading-none">&times;</button>
+                <button id="close-sandbox-btn" class="text-slate-400 hover:text-white transition text-3xl leading-none w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-800">&times;</button>
             </div>
             
             <!-- 頁籤按鈕區 -->
-            <div class="flex px-6 pt-4 bg-[#0f172a] border-b border-slate-700 gap-6 overflow-x-auto">
-                <button class="sandbox-tab-btn active pb-3 text-brand-accent border-b-2 border-brand-accent font-semibold whitespace-nowrap transition-colors flex items-center gap-2" data-target="tab-chips">
+            <div class="flex px-2 sm:px-6 pt-4 bg-[#0f172a] border-b border-slate-700 gap-2 sm:gap-6 overflow-x-auto shrink-0 scrollbar-hide">
+                <button class="sandbox-tab-btn active pb-3 px-2 sm:px-4 text-brand-accent border-b-2 border-brand-accent font-bold whitespace-nowrap transition-colors flex items-center gap-2 hover:bg-slate-800/50 rounded-t-lg" data-target="tab-chips">
                     <i class="fa-solid fa-microchip"></i> 科技：晶片戰爭
                 </button>
-                <button class="sandbox-tab-btn pb-3 text-slate-400 border-b-2 border-transparent hover:text-slate-200 font-semibold whitespace-nowrap transition-colors flex items-center gap-2" data-target="tab-energy">
-                    <i class="fa-solid fa-solar-panel"></i> 能源：綠能與礦物戰
+                <button class="sandbox-tab-btn pb-3 px-2 sm:px-4 text-slate-400 border-b-2 border-transparent hover:text-slate-200 font-bold whitespace-nowrap transition-colors flex items-center gap-2 hover:bg-slate-800/50 rounded-t-lg" data-target="tab-energy">
+                    <i class="fa-solid fa-solar-panel text-brand-success"></i> 能源：綠能與礦物戰
                 </button>
-                <button class="sandbox-tab-btn pb-3 text-slate-400 border-b-2 border-transparent hover:text-slate-200 font-semibold whitespace-nowrap transition-colors flex items-center gap-2" data-target="tab-finance">
-                    <i class="fa-solid fa-money-bill-transfer"></i> 金融：去美元化暗戰
+                <button class="sandbox-tab-btn pb-3 px-2 sm:px-4 text-slate-400 border-b-2 border-transparent hover:text-slate-200 font-bold whitespace-nowrap transition-colors flex items-center gap-2 hover:bg-slate-800/50 rounded-t-lg" data-target="tab-finance">
+                    <i class="fa-solid fa-money-bill-transfer text-brand-warning"></i> 金融：去美元化暗戰
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto flex-1 text-slate-300 space-y-6 text-sm md:text-base leading-relaxed">
-                <p>現在把焦點拉高，試著站在總體經濟霸權第1名美國，以及第2名中國的立場進行換位思考。</p>
+            <!-- Modal 內容滾動區 -->
+            <div class="p-4 sm:p-8 overflow-y-auto flex-1 text-slate-300 text-sm md:text-base leading-relaxed bg-gradient-to-b from-[#1e293b] to-[#0f172a]">
                 
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div class="bg-slate-800/50 p-4 rounded-lg border border-blue-500/30">
-                        <h3 class="text-blue-400 font-bold mb-2 text-lg"><i class="fa-solid fa-flag-usa"></i> 美國的第一原則</h3>
-                        <p>絕對不允許任何單一國家擁有挑戰美國制定全球規則的能力。必須死守美元、軍事、科技的三位一體霸權。</p>
-                    </div>
-                    <div class="bg-slate-800/50 p-4 rounded-lg border border-red-500/30">
-                        <h3 class="text-red-400 font-bold mb-2 text-lg"><i class="fa-solid fa-flag-checkered"></i> 中國的第一原則</h3>
-                        <p>確保政權穩定生存，經濟與科技發展不能受制於西方，並試圖建立一套以中國為核心的多極化秩序。</p>
+                <!-- 共同的前言區 -->
+                <div class="mb-8">
+                    <p class="mb-4 text-slate-400">以下推演基於總體經濟霸權第1名美國，以及第2名中國的第一原則進行換位思考：</p>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="bg-[#0f172a]/80 p-5 rounded-xl border border-blue-500/30 shadow-inner">
+                            <h3 class="text-blue-400 font-bold mb-3 text-lg flex items-center gap-2">
+                                <i class="fa-solid fa-flag-usa"></i> 美國的第一原則
+                            </h3>
+                            <p class="text-sm">絕對不允許任何單一國家擁有挑戰美國制定全球規則的能力。必須死守「美元、軍事、科技」的三位一體霸權。</p>
+                        </div>
+                        <div class="bg-[#0f172a]/80 p-5 rounded-xl border border-red-500/30 shadow-inner">
+                            <h3 class="text-red-400 font-bold mb-3 text-lg flex items-center gap-2">
+                                <i class="fa-solid fa-flag-checkered"></i> 中國的第一原則
+                            </h3>
+                            <p class="text-sm">確保政權穩定生存，經濟與科技發展不能受制於西方，並試圖建立一套以中國為核心、去西方化的多極世界秩序。</p>
+                        </div>
                     </div>
                 </div>
 
                 <!-- ================= 頁籤內容 1：晶片戰 ================= -->
-                <div id="tab-chips" class="sandbox-tab-content space-y-5 mt-4 block">
-                    <div class="border-l-4 border-brand-accent pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">起點：為什麼會爆發晶片戰？</h3>
-                        <p>美國意識到中國在AI、5G與高階運算上的進展，已經直接威脅到未來的科技與軍事絕對優勢。中國龐大的補貼正在複製當年擊潰美國本土製造業的模式。</p>
-                    </div>
+                <div id="tab-chips" class="sandbox-tab-content block animate-[fadeIn_0.5s_ease-out]">
+                    <div class="space-y-6">
+                        <div class="relative pl-6 border-l-2 border-brand-accent">
+                            <div class="absolute w-3 h-3 bg-brand-accent rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#38bdf8]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">起點：為什麼會爆發晶片戰？</h3>
+                            <p class="text-slate-400">美國意識到中國在 AI、5G 與高階運算上的進展，已經直接威脅到未來的科技與軍事絕對優勢。中國龐大的國家補貼，正在複製當年擊潰美國本土中低階製造業的模式。</p>
+                        </div>
 
-                    <div class="border-l-4 border-brand-accent pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">雙方真正的目的到底是什麼？</h3>
-                        <ul class="list-disc pl-5 space-y-2 mt-2">
-                            <li><span class="text-blue-300 font-semibold">美國的真目的：</span>其實不是真的要自己製造所有晶片，而是要「精準破壞」中國取得下個世代運算能力的速度，把對手鎖死在低階製造的範圍內。</li>
-                            <li><span class="text-red-300 font-semibold">中國的真目的：</span>爭取時間。用盡一切手段在被完全封死之前，硬砸出一條哪怕成本極高、良率極低，但完全不需要依賴美國技術的本土供應鏈。</li>
-                        </ul>
-                    </div>
-
-                    <div class="border-l-4 border-brand-accent pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">為了達成目的，隱藏與公開了什麼？</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
-                                <span class="block text-xs text-slate-400 mb-1">美國視角</span>
-                                <p>公開說這是為了「國家安全」與「供應鏈韌性」。隱藏的是，就算台積電去美國設廠成本變高也無所謂，重點是把最先進的實體技術抓在自己國家的土地上。</p>
-                            </div>
-                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
-                                <span class="block text-xs text-slate-400 mb-1">中國視角</span>
-                                <p>公開呼籲全球化與自由貿易，抗議技術霸權。隱藏的是內部正進行極度殘酷的資源傾注，準備用成熟製程產能淹沒全球市場當作談判籌碼。</p>
+                        <div class="relative pl-6 border-l-2 border-brand-accent">
+                            <div class="absolute w-3 h-3 bg-brand-accent rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#38bdf8]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">雙方真正的目的到底是什麼？</h3>
+                            <div class="space-y-3 mt-2 bg-slate-800/30 p-4 rounded-lg">
+                                <p><span class="text-blue-300 font-bold bg-blue-900/30 px-2 py-0.5 rounded">美國的真目的</span><br>其實不是真的要自己製造所有晶片，而是要「精準破壞」中國取得下個世代運算能力的速度，把對手鎖死在成熟製程（低階製造）的範圍內。</p>
+                                <hr class="border-slate-700">
+                                <p><span class="text-red-300 font-bold bg-red-900/30 px-2 py-0.5 rounded">中國的真目的</span><br>爭取時間。用盡一切手段在被完全封死之前，硬砸出一條哪怕成本極高、良率極低，但完全不需要依賴美國技術的本土紅色供應鏈。</p>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="border-l-4 border-brand-accent pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">戰略性的推動與安排</h3>
-                        <p>美國盤點手上的牌，發現自己掌握了「軟體授權」與「金融制裁」。於是把盟友分類，強勢聯手荷蘭(ASML光刻機)、日本(化學材料)、台灣(高階代工)。透過長臂管轄權強迫這三個節點國家配合出口管制，直接切斷對手發展高階晶片的氧氣管。</p>
-                    </div>
+                        <div class="relative pl-6 border-l-2 border-brand-accent">
+                            <div class="absolute w-3 h-3 bg-brand-accent rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#38bdf8]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">隱藏與公開的兩手策略</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                                <div class="bg-[#0f172a] p-4 rounded border border-slate-700">
+                                    <span class="block text-xs font-bold text-blue-400 mb-2 border-b border-slate-700 pb-1">美國視角</span>
+                                    <p class="text-sm"><span class="text-slate-300 font-semibold">公開說：</span>為了「國家安全」與「供應鏈韌性」。<br><br><span class="text-slate-300 font-semibold">隱藏的：</span>就算台積電去美國設廠成本變高也無所謂，重點是強迫把最先進的實體技術與人才，抓在自己國家的土地上。</p>
+                                </div>
+                                <div class="bg-[#0f172a] p-4 rounded border border-slate-700">
+                                    <span class="block text-xs font-bold text-red-400 mb-2 border-b border-slate-700 pb-1">中國視角</span>
+                                    <p class="text-sm"><span class="text-slate-300 font-semibold">公開說：</span>呼籲全球化與自由貿易，抗議美國技術霸權。<br><br><span class="text-slate-300 font-semibold">隱藏的：</span>內部正進行極度殘酷的資源傾注，準備用成熟製程的超級產能淹沒全球市場，作為未來的談判籌碼。</p>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div class="border-l-4 border-brand-accent pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">最終結果</h3>
-                        <p>半導體是極度複雜的產業，沒有單一國家能獨立完成。當美、日、荷、台聯手，中國短期內確實無法取得先進設備，發展嚴重受挫。美國初步達成了拖慢對手腳步的目的，但也逼迫對方放棄幻想走向完全自主研發。全球科技供應鏈正式碎裂成兩套不同的系統。</p>
+                        <div class="relative pl-6 border-l-2 border-brand-accent">
+                            <div class="absolute w-3 h-3 bg-brand-accent rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#38bdf8]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">戰略推動與最終結果</h3>
+                            <p class="text-slate-400 mb-3">美國盤點手上的牌，發現自己掌握了「軟體授權」與「金融制裁」。於是強勢聯手<span class="text-white font-semibold">荷蘭(ASML)、日本(材料)、台灣(代工)</span>。透過長臂管轄權強迫節點國家配合出口管制，切斷對手氧氣管。</p>
+                            <div class="bg-brand-accent/10 border border-brand-accent/30 p-4 rounded-lg text-brand-accent font-medium">
+                                <i class="fa-solid fa-bolt mr-2"></i> 結果：全球科技供應鏈正式碎裂成「紅色」與「非紅」兩套系統。美國初步拖慢了對手腳步，但也逼迫中國走向完全自主研發的無退路之戰。
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- ================= 頁籤內容 2：綠能與礦物戰 ================= -->
-                <div id="tab-energy" class="sandbox-tab-content space-y-5 mt-4 hidden">
-                    <div class="border-l-4 border-emerald-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">起點：為什麼會爆發能源轉型戰？</h3>
-                        <p>氣候變遷成為全球共識，化石燃料逐漸被淘汰。雙方都意識到，舊時代的霸權建立在「石油（中東）」上，而新時代的霸權將建立在「綠能基建、電動車與電池」上。誰掌握了新的能源供應鏈，誰就掌握了下一個世紀的經濟命脈。</p>
-                    </div>
+                <div id="tab-energy" class="sandbox-tab-content hidden animate-[fadeIn_0.5s_ease-out]">
+                    <div class="space-y-6">
+                        <div class="relative pl-6 border-l-2 border-brand-success">
+                            <div class="absolute w-3 h-3 bg-brand-success rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#34d399]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">起點：為什麼會爆發能源轉型戰？</h3>
+                            <p class="text-slate-400">氣候變遷成為全球共識。雙方都意識到，舊時代霸權建立在「石油（中東）」上，新時代霸權將建立在「綠能基建、電動車與電池」上。誰掌握新能源供應鏈，誰就掌握下個世紀的經濟命脈。</p>
+                        </div>
 
-                    <div class="border-l-4 border-emerald-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">雙方真正的目的到底是什麼？</h3>
-                        <ul class="list-disc pl-5 space-y-2 mt-2">
-                            <li><span class="text-blue-300 font-semibold">美國的真目的：</span>維持能源定價權。從過去主導「石油美元」，轉型為控制未來綠能的技術與標準。更重要的是，徹底擺脫對敵對國家（傳統產油國）的能源依賴。</li>
-                            <li><span class="text-red-300 font-semibold">中國的真目的：</span>彎道超車。既然在傳統燃油車與石油航道（馬六甲海峽）上受制於西方，那就直接跳過舊系統，霸佔下時代的能源基建（太陽能板、電池、稀土冶煉），成為全球「新能源工廠」。</li>
-                        </ul>
-                    </div>
-
-                    <div class="border-l-4 border-emerald-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">為了達成目的，隱藏與公開了什麼？</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
-                                <span class="block text-xs text-slate-400 mb-1">美國視角</span>
-                                <p>公開說為了減碳與拯救地球推動轉型。隱藏的是，透過 IRA（通膨削減法案）進行排他性的高額補貼，強迫供應鏈移回北美或盟友國，用高牆排擠對手的廉價設備。</p>
-                            </div>
-                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
-                                <span class="block text-xs text-slate-400 mb-1">中國視角</span>
-                                <p>公開說協助全球達成淨零碳排，提供最高性價比方案。隱藏的是，透過早期在非洲與南美洲佈局，近乎壟斷了關鍵礦物（鋰、鈷、稀土）的開採與冶煉，試圖將全球綠能命脈綁定在自己身上。</p>
+                        <div class="relative pl-6 border-l-2 border-brand-success">
+                            <div class="absolute w-3 h-3 bg-brand-success rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#34d399]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">雙方真正的目的到底是什麼？</h3>
+                            <div class="space-y-3 mt-2 bg-slate-800/30 p-4 rounded-lg">
+                                <p><span class="text-blue-300 font-bold bg-blue-900/30 px-2 py-0.5 rounded">美國的真目的</span><br>維持能源定價權。從主導「石油美元」，轉型為控制綠能技術與標準。更重要的是，徹底擺脫對敵對國家（傳統產油國）的能源依賴。</p>
+                                <hr class="border-slate-700">
+                                <p><span class="text-red-300 font-bold bg-red-900/30 px-2 py-0.5 rounded">中國的真目的</span><br>彎道超車。既然在燃油車引擎與石油航道受制於西方，那就直接跳過舊系統，霸佔下時代的能源基建（太陽能板、電池、稀土冶煉），成為無可取代的「新能源工廠」。</p>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="border-l-4 border-emerald-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">戰略性的推動與安排</h3>
-                        <p>中國早早深入全球南方（Global South），在非洲買鈷礦，在南美建立鋰礦基地。美國驚覺落後，開始拉攏澳洲、加拿大、南美盟友建立「友岸礦物網 (Friendshoring)」，試圖繞開對手建立第二條關鍵礦物供應鏈，同時在中東維持影響力作為過渡緩衝。</p>
-                    </div>
+                        <div class="relative pl-6 border-l-2 border-brand-success">
+                            <div class="absolute w-3 h-3 bg-brand-success rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#34d399]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">隱藏與公開的兩手策略</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                                <div class="bg-[#0f172a] p-4 rounded border border-slate-700">
+                                    <span class="block text-xs font-bold text-blue-400 mb-2 border-b border-slate-700 pb-1">美國視角</span>
+                                    <p class="text-sm"><span class="text-slate-300 font-semibold">公開說：</span>為了減碳與拯救地球推動轉型。<br><br><span class="text-slate-300 font-semibold">隱藏的：</span>透過 IRA（通膨削減法案）進行排他性高額補貼，強迫供應鏈移回北美，用高牆排擠中國廉價設備。</p>
+                                </div>
+                                <div class="bg-[#0f172a] p-4 rounded border border-slate-700">
+                                    <span class="block text-xs font-bold text-red-400 mb-2 border-b border-slate-700 pb-1">中國視角</span>
+                                    <p class="text-sm"><span class="text-slate-300 font-semibold">公開說：</span>協助全球達成淨零碳排，提供最高性價比方案。<br><br><span class="text-slate-300 font-semibold">隱藏的：</span>透過早期在非洲與南美洲佈局，近乎壟斷了關鍵礦物（鋰、鈷、稀土）開採與冶煉，綁定全球命脈。</p>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div class="border-l-4 border-emerald-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">最終結果</h3>
-                        <p>傳統產油國感到時代焦慮，開始瘋狂兩頭下注。中國在電動車與電池領域已取得全球壓倒性優勢。美國則在自家後院築起保護主義高牆。全球能源市場正從單一的「石油體系」，分裂為「舊能源地緣政治」與「新能源礦物爭奪戰」的雙軌博弈。</p>
+                        <div class="relative pl-6 border-l-2 border-brand-success">
+                            <div class="absolute w-3 h-3 bg-brand-success rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#34d399]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">戰略推動與最終結果</h3>
+                            <p class="text-slate-400 mb-3">中國早早深入全球南方買礦；美國驚覺落後，拉攏澳洲、加拿大、南美建立「友岸礦物網 (Friendshoring)」，試圖繞開中國建立第二條供應鏈。</p>
+                            <div class="bg-brand-success/10 border border-brand-success/30 p-4 rounded-lg text-brand-success font-medium">
+                                <i class="fa-solid fa-bolt mr-2"></i> 結果：傳統產油國焦慮兩頭下注。中國在電動車與電池取得壓倒優勢並向外傾銷；美國則築起保護主義高牆。全球能源市場正分裂為「舊能源地緣政治」與「新能源礦物戰」雙軌博弈。
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- ================= 頁籤內容 3：金融去美元化 ================= -->
-                <div id="tab-finance" class="sandbox-tab-content space-y-5 mt-4 hidden">
-                    <div class="border-l-4 border-amber-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">起點：為什麼會爆發貨幣體系的暗戰？</h3>
-                        <p>俄烏戰爭爆發後，美國動用金融核武，將俄羅斯踢出 SWIFT 系統並凍結其外匯儲備。這個舉動震驚了全球南方與非西方陣營，讓他們驚覺：「原來放在海外的錢，在美國不點頭時，就不是我的錢」。</p>
-                    </div>
+                <div id="tab-finance" class="sandbox-tab-content hidden animate-[fadeIn_0.5s_ease-out]">
+                    <div class="space-y-6">
+                        <div class="relative pl-6 border-l-2 border-brand-warning">
+                            <div class="absolute w-3 h-3 bg-brand-warning rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#fbbf24]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">起點：為什麼會爆發貨幣體系暗戰？</h3>
+                            <p class="text-slate-400">俄烏戰爭後，美國動用金融核武，將俄羅斯踢出 SWIFT 並凍結外匯儲備。這震驚了全球南方，讓他們驚覺：「原來放在海外的錢，在美國不點頭時，就不是我的錢」。</p>
+                        </div>
 
-                    <div class="border-l-4 border-amber-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">雙方真正的目的到底是什麼？</h3>
-                        <ul class="list-disc pl-5 space-y-2 mt-2">
-                            <li><span class="text-blue-300 font-semibold">美國的真目的：</span>維持美元作為全球唯一終極避險資產的地位。這讓美國能無成本地向全球輸出通膨，並利用制裁能力不流血地摧毀敵對國家的經濟。</li>
-                            <li><span class="text-red-300 font-semibold">中/俄的真目的：</span>建立一套「防彈」的金融替代方案（如 CIPS 系統）。他們知道完全取代美元是不可能的，真正的目的是「保命」，確保在面臨最極端的西方制裁時，國家仍能維持貿易與能源進口。</li>
-                        </ul>
-                    </div>
-
-                    <div class="border-l-4 border-amber-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">為了達成目的，隱藏與公開了什麼？</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
-                                <span class="block text-xs text-slate-400 mb-1">美國視角</span>
-                                <p>公開說金融制裁是為了維護國際秩序、懲罰侵略者。隱藏的是「殺雞儆猴」，警告潛在挑戰者，挑戰美國制定的規則，將面臨瞬間回到石器時代的金融毀滅。</p>
-                            </div>
-                            <div class="bg-slate-800/80 p-3 rounded border border-slate-700">
-                                <span class="block text-xs text-slate-400 mb-1">金磚國家視角</span>
-                                <p>公開推動本幣結算，宣稱是為了降低匯率風險與促進公平貿易。隱藏的是，各國央行正歷史性地瘋狂囤積「黃金」，試圖從底層掏空對美元的信任，建立基於實體大宗商品的平行網路。</p>
+                        <div class="relative pl-6 border-l-2 border-brand-warning">
+                            <div class="absolute w-3 h-3 bg-brand-warning rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#fbbf24]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">雙方真正的目的到底是什麼？</h3>
+                            <div class="space-y-3 mt-2 bg-slate-800/30 p-4 rounded-lg">
+                                <p><span class="text-blue-300 font-bold bg-blue-900/30 px-2 py-0.5 rounded">美國的真目的</span><br>維持美元作為唯一終極避險資產的地位。這讓美國能無成本地輸出通膨，並利用制裁能力不流血地摧毀敵國經濟。</p>
+                                <hr class="border-slate-700">
+                                <p><span class="text-amber-300 font-bold bg-amber-900/30 px-2 py-0.5 rounded">中/俄(金磚)的真目的</span><br>建立一套「防彈」的金融替代方案（如 CIPS）。目的不是完全取代美元，而是「保命」，確保極端制裁下仍能維持貿易與能源進口。</p>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="border-l-4 border-amber-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">戰略性的推動與安排</h3>
-                        <p>美國緊抓高科技定價權以及與中東殘存的「石油美元」默契；而中國則利用自身龐大的工業需求，拉攏沙烏地、巴西、伊朗，推動「用人民幣買石油/礦產」，並大幅擴充金磚國家（BRICS）陣容，建立不依賴西方的經濟內循環圈。</p>
-                    </div>
+                        <div class="relative pl-6 border-l-2 border-brand-warning">
+                            <div class="absolute w-3 h-3 bg-brand-warning rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#fbbf24]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">隱藏與公開的兩手策略</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                                <div class="bg-[#0f172a] p-4 rounded border border-slate-700">
+                                    <span class="block text-xs font-bold text-blue-400 mb-2 border-b border-slate-700 pb-1">美國視角</span>
+                                    <p class="text-sm"><span class="text-slate-300 font-semibold">公開說：</span>金融制裁是維護國際秩序、懲罰侵略者。<br><br><span class="text-slate-300 font-semibold">隱藏的：</span>殺雞儆猴。警告潛在挑戰者，挑戰規則將面臨瞬間回到石器時代的金融毀滅。</p>
+                                </div>
+                                <div class="bg-[#0f172a] p-4 rounded border border-slate-700">
+                                    <span class="block text-xs font-bold text-amber-400 mb-2 border-b border-slate-700 pb-1">金磚國家視角</span>
+                                    <p class="text-sm"><span class="text-slate-300 font-semibold">公開說：</span>推動本幣結算，降低匯率風險，促進公平貿易。<br><br><span class="text-slate-300 font-semibold">隱藏的：</span>各國央行歷史性瘋狂囤積「黃金」，從底層掏空對美元的信任，建立基於大宗商品的平行網路。</p>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div class="border-l-4 border-amber-500 pl-4">
-                        <h3 class="text-white font-bold text-lg mb-1">最終結果</h3>
-                        <p>美元在可見的未來（5-10年內）依然佔據絕對統治地位，無可撼動。但「去美元化」的種子已經深深種下，全球央行的黃金儲備創下歷史新高。一個極度隱蔽、平行於西方體系之外的「影子貿易結算網」已經成形，世界的金融信任網絡出現了不可逆的裂痕。</p>
+                        <div class="relative pl-6 border-l-2 border-brand-warning">
+                            <div class="absolute w-3 h-3 bg-brand-warning rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_#fbbf24]"></div>
+                            <h3 class="text-white font-bold text-lg mb-2">戰略推動與最終結果</h3>
+                            <p class="text-slate-400 mb-3">美國緊抓高科技定價權與石油美元；中國利用工業需求拉攏沙烏地、伊朗推動「人民幣買石油」，擴充金磚陣容建立經濟內循環。</p>
+                            <div class="bg-brand-warning/10 border border-brand-warning/30 p-4 rounded-lg text-brand-warning font-medium">
+                                <i class="fa-solid fa-bolt mr-2"></i> 結果：美元在可見未來依然霸權無可撼動。但「去美元化」種子已種下，平行於西方之外的「影子貿易結算網」已經成形，全球金融信任網絡出現不可逆的裂痕。
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -164,12 +407,525 @@
         </div>
     </div>
 
-
-    <!-- 請在原本檔案最下方的 <script> 標籤中，加入這段頁籤切換邏輯（可以放在打開 Modal 邏輯的下方） -->
     <script>
-        // ... (保留你原有的 database 與 d3.js 地圖程式碼) ...
+        // 核心資料庫：前30大國家情報
+        const database = {
+            "USA": {
+                name: "美國", region: "北美洲", gdp: 28.0, gdpRank: 1, pop: "3.4億", gni: "80,000", milRank: 1, debt: "~120%",
+                industry: "軟體架構、AI底層模型、航太軍工、金融衍生品、高階晶片設計",
+                wants: ["絕對安全的國內硬體製造鏈", "對稀土與關鍵礦物的控制力", "讓全球南方完全選邊站的影響力"],
+                cantLose: ["美元作為全球唯一終極儲備貨幣的地位", "全球頂尖人才的吸引力", "絕對的海空軍優勢與制海權"],
+                has: ["軟體與AI底層邏輯的絕對定義權", "將金融系統武器化(制裁)的能力", "全球最深且具創新力的資本市場"],
+                weakness: ["基礎製造業嚴重空洞化與工人斷層", "國內政治極度撕裂與民粹化", "龐大且難以逆轉的政府債務黑洞"],
+                confidence: ["頂尖的高等教育與基礎科學研究體系", "好萊塢與社群媒體的強大文化輸出", "深不可測的航太與軍工複合體底蘊"],
+                allies: ["GBR", "JPN", "TWN", "CAN", "AUS", "KOR", "DEU", "FRA", "ISR", "NLD"],
+                competitors: ["CHN", "RUS"]
+            },
+            "CHN": {
+                name: "中國", region: "東北亞", gdp: 18.5, gdpRank: 2, pop: "14.1億", gni: "13,000", milRank: 3, debt: "~80%",
+                industry: "基礎與精密製造、電動車完整產業鏈、無人機、太陽能綠能、網通設備",
+                wants: ["高階半導體與設備的自主製造力", "突破美國第一島鏈的軍事與地緣限制", "人民幣貿易結算的國際化與石油定價權"],
+                cantLose: ["龐大的國內消費市場與內循環動能", "作為『世界工廠』的完整供應鏈聚落", "能源(石油)與糧食的進口安全通道"],
+                has: ["強大且具絕對成本優勢的全領域製造力", "全球最完整的電動車與電池產業鏈", "由國家資本驅動的超級基礎建設工程力"],
+                weakness: ["核心關鍵技術(晶片/軟體)極容易被掐脖子", "快速惡化的高齡化與少子化人口結構", "房地產泡沫與龐大的地方隱形債務危機"],
+                confidence: ["龐大的工程師與熟練技工紅利", "對全球稀土與關鍵金屬冶煉的近乎壟斷", "高效率的高鐵與港口物流網路"],
+                allies: ["RUS", "BRA", "ZAF", "SAU"],
+                competitors: ["USA", "JPN", "IND", "TWN"]
+            },
+            "DEU": {
+                name: "德國", region: "歐洲", gdp: 4.5, gdpRank: 3, pop: "8,300萬", gni: "53,000", milRank: 19, debt: "~65%",
+                industry: "內燃機汽車工業、精密機械與工具機、高階化工、醫療設備",
+                wants: ["穩定且廉價的能源供應(過去依賴俄羅斯)", "成功轉型電動車，保住汽車霸主地位", "歐盟內部的絕對領導權與經濟穩定"],
+                cantLose: ["『德國製造』在高端工藝上的品牌溢價", "中國龐大的汽車與機械消費市場", "歐元區的出口競爭優勢"],
+                has: ["隱形冠軍中小企業群(Mittelstand)", "全球頂尖的精密機械加工與化工實力", "完善的技職教育體系(雙軌制)"],
+                weakness: ["能源轉型陣痛期導致工業成本暴增", "過度依賴中國市場帶來的地緣政治風險", "數位化轉型與軟體思維嚴重落後美中"],
+                confidence: ["嚴謹的工業標準制定能力", "強大的工會體系與社會勞資和諧", "在歐盟中央銀行的話語權"],
+                allies: ["FRA", "USA", "NLD", "POL", "ITA"],
+                competitors: ["CHN", "JPN", "KOR"]
+            },
+            "JPN": {
+                name: "日本", region: "東北亞", gdp: 4.1, gdpRank: 4, pop: "1.2億", gni: "42,000", milRank: 7, debt: "~250%",
+                industry: "半導體特用材料、精密光學設備、汽車工業、機器人",
+                wants: ["擺脫高齡化帶來的勞動力與內需枯竭", "地緣政治上的完全正常化軍隊(修憲)", "重返半導體製造與電子業的昔日榮耀"],
+                cantLose: ["在全球科技供應鏈中不可取代的材料地位", "日圓作為全球主要避險貨幣的地位", "與美國堅如磐石的安保條約"],
+                has: ["基礎化學、特殊材料與光學設備的絕對寡占", "極高良率與故障率極低的精密製造工藝", "龐大的海外資產與商社投資網路"],
+                weakness: ["能源與原物料幾乎百分之百仰賴海運進口", "人口結構極度老化，社會缺乏創新活力", "軟體產業薄弱，錯失網路與AI時代"],
+                confidence: ["工匠精神與無可挑剔的品質控管(Kaizen)", "全球佈局的綜合商社情報與投資系統", "極高素質的國民與穩定的社會結構"],
+                allies: ["USA", "TWN", "AUS", "GBR", "KOR"],
+                competitors: ["CHN", "KOR", "DEU"]
+            },
+            "IND": {
+                name: "印度", region: "南亞", gdp: 3.9, gdpRank: 5, pop: "14.3億", gni: "2,500", milRank: 4, debt: "~80%",
+                industry: "軟體委外代工(IT服務)、學名藥製造、基礎農業、紡織",
+                wants: ["取代中國成為下一個『世界工廠』", "吸引跨國企業將高階供應鏈移入", "聯合國安理會常任理事國席位"],
+                cantLose: ["廉價且龐大的年輕勞動力紅利", "不結盟政策帶來的兩邊逢源戰略空間", "國內龐大且封閉的內需市場保護傘"],
+                has: ["全球最大的英語系軟體工程師人才庫", "『全球藥房』的製藥與疫苗生產產能", "在地緣政治上被美俄中同時拉攏的優勢"],
+                weakness: ["基礎建設(水電、交通)極度落後且缺乏規劃", "各邦法律與稅制複雜，官僚體系腐敗效率低", "製造業基礎薄弱，零組件嚴重依賴進口"],
+                confidence: ["龐大的人口基數與正在崛起的年輕中產階級", "在矽谷科技巨頭中的印度裔高管影響力", "悠久的文明底蘊與南亞次大陸的絕對霸權"],
+                allies: ["USA", "RUS", "FRA", "JPN"],
+                competitors: ["CHN", "PAK"]
+            },
+            "GBR": {
+                name: "英國", region: "歐洲", gdp: 3.5, gdpRank: 6, pop: "6,800萬", gni: "49,000", milRank: 6, debt: "~100%",
+                industry: "金融與法律服務、生技製藥、航太發動機(Rolls-Royce)、高等教育",
+                wants: ["脫歐後重新定位『全球化英國』的貿易網絡", "在AI監管與標準制定上取得全球話語權", "維持倫敦作為全球前兩大金融中心的地位"],
+                cantLose: ["與美國的『特殊關係』及情報共享(五眼聯盟)", "吸引全球富豪與頂尖人才的制度吸引力", "英鎊作為主要國際儲備貨幣的地位"],
+                has: ["深厚的基礎科學研究與頂尖大學(牛津劍橋)", "極度發達的金融衍生品與保險市場", "高階航太引擎與核子潛艦的製造能力"],
+                weakness: ["脫歐導致的勞動力短缺與歐洲市場准入障礙", "蘇格蘭獨立公投的內部撕裂隱憂", "傳統製造業空洞化，經濟過度依賴金融服務"],
+                confidence: ["大英國協的歷史影響力與軟實力", "完善的普通法體系(全球商業合約基準)", "深厚的文化底蘊與文化創意產業輸出"],
+                allies: ["USA", "AUS", "CAN", "JPN", "FRA"],
+                competitors: ["RUS", "CHN", "DEU"]
+            },
+            "FRA": {
+                name: "法國", region: "歐洲", gdp: 3.1, gdpRank: 7, pop: "6,800萬", gni: "44,000", milRank: 11, debt: "~110%",
+                industry: "核能技術、航太(Airbus)、高端精品(LVMH)、國防軍工、農業",
+                wants: ["推動『歐洲戰略自主』，減少對美國的安全依賴", "主導歐洲綠能與核能的政策走向", "維持在非洲前殖民地的影響力與資源獲取"],
+                cantLose: ["獨立自主的國防工業與核威懾力量", "精品業在全球的高端定價權與品牌護城河", "歐盟農業補貼的最大受益者地位"],
+                has: ["完整的自主軍工產業鏈(飆風戰機、潛艦)", "全球最先進且佔比最高的核能發電網路", "極強的奢侈品與化妝品全球行銷能力"],
+                weakness: ["僵化的勞動法規與頻繁的大罷工(黃背心)", "國內移民融合問題與極右翼民粹崛起", "在西非薩赫勒地區的影響力正被俄羅斯取代"],
+                confidence: ["歐洲唯一擁有完整核武庫的國家", "深厚的數學與理論科學研究底蘊", "作為歐洲文化與生活方式仲裁者的自豪"],
+                allies: ["DEU", "ITA", "ESP", "IND", "USA"],
+                competitors: ["RUS", "GBR", "CHN"]
+            },
+            "BRA": {
+                name: "巴西", region: "南美洲", gdp: 2.3, gdpRank: 8, pop: "2.1億", gni: "9,000", milRank: 10, debt: "~75%",
+                industry: "大宗農產品(大豆、糖)、鐵礦砂、深海原油、中型客機(Embraer)",
+                wants: ["提升農礦產品的附加價值，不只做原物料出口國", "獲得聯合國安理會常任理事國席位", "主導南美洲的經濟一體化與地緣政治"],
+                cantLose: ["中國對其鐵礦砂與大豆的龐大穩定需求", "亞馬遜雨林帶來的全球氣候談判籌碼", "國內能源的自給自足狀態(生質能與深海油)"],
+                has: ["全球頂尖的深海石油探勘與開採技術", "極具競爭力的商用中型客機製造能力", "得天獨厚的龐大可耕地與淡水資源"],
+                weakness: ["基礎設施(道路、港口)極度缺乏且老舊", "嚴重的貧富差距與治安問題(貧民窟)", "複雜且高昂的稅收與勞工法規(巴西成本)"],
+                confidence: ["作為全球糧倉與礦倉的絕對地位", "在綠色能源(水力發電與乙醇)的超前部署", "在南半球與發展中國家(金磚)的外交影響力"],
+                allies: ["CHN", "ARG", "USA", "IND"],
+                competitors: ["AUS", "RUS"]
+            },
+            "TWN": {
+                name: "台灣", region: "東北亞", gdp: 0.8, gdpRank: 22, pop: "2,300萬", gni: "35,000", milRank: 24, debt: "~30%",
+                industry: "晶圓代工(先進製程)、IC設計、伺服器組裝、網通、精密機械",
+                wants: ["國際政治上的正式承認與實質安全保障", "穩定不受地緣政治干擾的綠能與水電供應", "發展出具備全球影響力的軟體與品牌"],
+                cantLose: ["先進製程晶圓代工的絕對全球壟斷地位", "美國與日本的安全承諾與軍售", "高素質、高彈性且耐勞的工程師文化"],
+                has: ["台積電與其背後密不可分的高效半導體聚落", "極致的成本控制與良率管理的代工 DNA", "快速將最新科技產品(如AI伺服器)量產的彈性"],
+                weakness: ["兩岸地緣政治衝突引發戰爭的高風險", "能源與原物料幾乎 100% 仰賴海運輸入", "產業鏈嚴重偏斜，過度集中於單一硬體領域"],
+                confidence: ["電子代工與硬體製造的完整無死角生態系", "靈活應變、極具韌性的中小企業供應鏈網路", "高水準的醫療保健體系與公共衛生能力"],
+                allies: ["USA", "JPN", "NLD", "KOR"],
+                competitors: ["CHN", "KOR"]
+            },
+            "KOR": {
+                name: "韓國", region: "東北亞", gdp: 1.7, gdpRank: 14, pop: "5,100萬", gni: "35,000", milRank: 5, debt: "~55%",
+                industry: "記憶體晶片、造船、消費性電子、汽車、流行娛樂(K-Pop)",
+                wants: ["在AI晶片領域擺脫對台灣代工的落後", "確保北韓政權不發生災難性的軍事暴走", "在美中科技戰中維持兩面獲利的平衡"],
+                cantLose: ["全球記憶體晶片(DRAM/NAND)的霸主地位", "財閥企業在全球品牌中的市佔率(三星、現代)", "美國在朝鮮半島的駐軍保護"],
+                has: ["財閥(Chaebol)集中資源打世界盃的極致效率", "全球頂尖的造船(特別是LNG船)與重工實力", "強勢輸出的軟實力(影視、音樂、美妝)"],
+                weakness: ["全球最低的生育率與極速高齡化的社會危機", "極度依賴大財閥導致的中小企業創新窒息", "夾在美日盟友與最大市場中國之間的兩難"],
+                confidence: ["『恨』文化驅動的極度好勝心與國民拼搏精神", "政府與大企業緊密合作的國家資本主義模式", "在顯示面板、電池與半導體的強大研發能量"],
+                allies: ["USA", "JPN", "TWN"],
+                competitors: ["JPN", "CHN", "TWN"]
+            },
+            "RUS": {
+                name: "俄羅斯", region: "橫跨歐亞", gdp: 2.0, gdpRank: 11, pop: "1.4億", gni: "14,000", milRank: 2, debt: "~20%",
+                industry: "原油天然氣開採、軍工複合體、小麥農業、核能技術",
+                wants: ["打破西方世界的金融與科技全面封鎖", "重新建立在東歐與前蘇聯國家的勢力範圍", "建立一套不依賴美元的平行國際結算系統"],
+                cantLose: ["核武庫作為大國地位的最終保證", "歐洲之外的能源替代買家(中國、印度)", "對國內政局與寡頭的絕對控制力"],
+                has: ["龐大無比的能源儲備與大宗商品(化肥、金屬)", "在惡劣環境下的強大軍火製造與消耗戰能力", "全球最頂尖的網路駭客與資訊戰部隊"],
+                weakness: ["除了賣資源與武器外，幾乎沒有具競爭力的民生工業", "受制裁導致無法取得西方高階晶片與航空零件", "人口持續萎縮與人才嚴重外流(Brain Drain)"],
+                confidence: ["廣袤戰略縱深與嚴寒氣候帶來的絕對防禦力", "作為歐洲『能源閥門』與全球『糧倉』的底氣", "極度強韌的社會耐受力與民族主義情緒"],
+                allies: ["CHN", "IRN", "PRK", "BLR", "IND"],
+                competitors: ["USA", "UKR", "GBR", "FRA", "DEU"]
+            },
+            "NLD": {
+                name: "荷蘭", region: "歐洲", gdp: 1.1, gdpRank: 17, pop: "1,700萬", gni: "60,000", milRank: 39, debt: "~50%",
+                industry: "半導體微影設備(ASML)、高經濟價值農業(溫室)、物流、金融",
+                wants: ["在中美科技戰中維持ASML的商業自主性，避免被當槍使", "解決國土低窪面對海平面上升的生存威脅", "維持歐洲最大貿易門戶(鹿特丹港)的地位"],
+                cantLose: ["EUV/DUV 曝光機在全球半導體製造的絕對壟斷", "高度開放的國際貿易體系與歐盟單一市場", "吸引全球高階科技與金融人才的稅務優勢"],
+                has: ["ASML 這張掐住全球最高科技咽喉的終極王牌", "全球效率最高的農業科技與水利工程", "極度發達的物流網路與跨國企業總部群"],
+                weakness: ["國土面積狹小，極易受氣候變遷直接衝擊", "經濟過度依賴國際貿易，極易受全球衰退影響", "國內環保法規過嚴導致的農民抗爭與企業外移壓力"],
+                confidence: ["幾百年來與海爭地累積的工程實力與務實精神", "高度妥協與尋求共識的政治文化(Polder model)", "歐洲金融創新與數位化的先驅地位"],
+                allies: ["USA", "DEU", "TWN", "KOR", "GBR"],
+                competitors: ["SGP", "IRL"]
+            },
+            "SAU": {
+                name: "沙烏地", region: "中東", gdp: 1.0, gdpRank: 19, pop: "3,600萬", gni: "28,000", milRank: 23, debt: "~25%",
+                industry: "原油開採與精煉、石化工業、主權財富基金投資、宗教觀光",
+                wants: ["成功實現『願景2030』，將經濟轉型擺脫石油依賴", "獲得美國的防禦條約與民用核能技術支持", "確立在伊斯蘭世界與中東地區的絕對領導地位"],
+                cantLose: ["沙烏地阿美(Aramco)作為國家搖錢樹的產能", "美國在中東的安全保護傘(儘管正在尋求平衡)", "麥加與麥地那兩大聖地的管理權與宗教正當性"],
+                has: ["全球成本最低、彈性最大的剩餘原油產能", "極度龐大、四處併購(體育/科技)的主權財富基金(PIF)", "在OPEC+中控制油價漲跌的關鍵話語權"],
+                weakness: ["經濟高度單一，油價崩跌即面臨財政危機", "極度依賴外籍勞工，本國年輕人失業率高", "與伊朗的地緣政治摩擦及葉門戰爭的泥淖"],
+                confidence: ["作為全球經濟『血液』(石油)總閥門的地位", "王室高度集權下能推動大規模超級計畫的執行力", "在美、中、俄之間大玩地緣政治平衡木的籌碼"],
+                allies: ["USA", "ARE", "CHN", "RUS"],
+                competitors: ["IRN", "USA"] // 石油市佔率競爭
+            },
+            "ISR": {
+                name: "以色列", region: "中東", gdp: 0.5, gdpRank: 29, pop: "980萬", gni: "54,000", milRank: 17, debt: "~60%",
+                industry: "資安軟體、軍工防禦系統、農業科技、醫療器材、鑽石加工",
+                wants: ["徹底消除周邊敵對武裝勢力(哈瑪斯/真主黨/伊朗)的威脅", "擴大與阿拉伯國家的關係正常化(亞伯拉罕協議)", "確保美國無條件的軍事與外交雙重支持"],
+                cantLose: ["中東地區唯一的核武(未承認)與絕對空中優勢", "美國每年巨額的軍事援助與聯合國一票否決保護", "全民皆兵與極高強度的危機生存意識"],
+                has: ["全球密度最高的科技新創生態系(Start-up Nation)", "實戰驗證過的最頂尖飛彈防禦系統(鐵穹)與無人機", "世界最強大的網路情報與駭客滲透能力(如Pegasus)"],
+                weakness: ["深陷以巴衝突泥淖，國際形象與外交處境惡化", "四周皆敵，缺乏戰略縱深，極易受恐怖攻擊破壞", "國內世俗派與極端正統派(不當兵)的人口結構衝突"],
+                confidence: ["強大的猶太人全球網路與在美國政商界的影響力", "把沙漠變綠洲的水資源回收與海水淡化技術", "極致的創新文化：不怕失敗、勇於質疑權威(Chutzpah)"],
+                allies: ["USA", "GBR", "DEU", "IND"],
+                competitors: ["IRN", "SYR"]
+            },
+            "IDN": {
+                name: "印尼", region: "東南亞", gdp: 1.4, gdpRank: 16, pop: "2.7億", gni: "5,000", milRank: 13, debt: "~40%",
+                industry: "鎳礦開採與電池材料冶煉、棕櫚油、煤炭出口、基礎代工製造",
+                wants: ["藉由禁礦出口，強迫外資在國內建立完整的電動車產業鏈", "維持東協(ASEAN)實質領袖的地位", "順利完成遷都(努山塔拉)，平衡區域發展"],
+                cantLose: ["對全球鎳礦(電動車電池核心)供應的絕對定價權", "馬六甲海峽與巽他海峽等關鍵海上咽喉的控制力", "國內龐大且年輕的內需消費市場"],
+                has: ["全球最大的鎳儲量與產量", "得天獨厚的地理位置，扼守兩大洋航道", "在美中之間維持『不結盟』、兩邊拿好處的外交手腕"],
+                weakness: ["基礎設施極度破碎(由萬島組成)，物流成本極高", "法規政策朝令夕改，貪腐與官僚主義嚴重", "教育水準偏低，缺乏高階工程與研發人才"],
+                confidence: ["東南亞最大經濟體與人口大國的規模優勢", "豐富的自然資源(礦產、農業、地熱)做為發展後盾", "溫和的伊斯蘭大國形象，地緣政治衝突風險較低"],
+                allies: ["SGP", "CHN", "USA", "JPN", "KOR"],
+                competitors: ["MYS", "VNM", "THA"]
+            }
+        };
 
-        // ======== 新增：沙盤推演多頁籤切換邏輯 ========
+        // 為剩餘未詳盡列出的國家補上基礎資料(讓地圖點擊不會出錯)
+        const simplifiedCountries = {
+            "ITA": { name: "義大利", region: "歐洲", gdp: 2.3, gdpRank: 9, pop: "5,900萬", gni: "38,000", milRank: 12, industry: "高端精品、跑車、精密機械設計、觀光" },
+            "CAN": { name: "加拿大", region: "北美洲", gdp: 2.2, gdpRank: 10, pop: "4,000萬", gni: "54,000", milRank: 26, industry: "石油天然氣、林業、金融服務、AI研究" },
+            "MEX": { name: "墨西哥", region: "北美洲", gdp: 1.8, gdpRank: 12, pop: "1.3億", gni: "12,000", milRank: 31, industry: "汽車代工、電子組裝(近岸外包)、石油" },
+            "AUS": { name: "澳洲", region: "大洋洲", gdp: 1.7, gdpRank: 13, pop: "2,600萬", gni: "60,000", milRank: 16, industry: "鐵礦砂、煤炭、天然氣、農畜產品、教育輸出" },
+            "ESP": { name: "西班牙", region: "歐洲", gdp: 1.6, gdpRank: 15, pop: "4,800萬", gni: "32,000", milRank: 20, industry: "觀光、基礎建設工程、再生能源、快時尚(Zara)" },
+            "TUR": { name: "土耳其", region: "橫跨歐亞", gdp: 1.1, gdpRank: 18, pop: "8,500萬", gni: "11,000", milRank: 8, industry: "軍工無人機、紡織、汽車零件代工、營造工程" },
+            "CHE": { name: "瑞士", region: "歐洲", gdp: 0.9, gdpRank: 20, pop: "880萬", gni: "90,000", milRank: 43, industry: "頂級製藥與生技、精密鐘錶、金融財富管理" },
+            "POL": { name: "波蘭", region: "歐洲", gdp: 0.8, gdpRank: 21, pop: "3,700萬", gni: "19,000", milRank: 21, industry: "IT服務委外、機械製造、食品加工、家電代工" },
+            "ARG": { name: "阿根廷", region: "南美洲", gdp: 0.6, gdpRank: 23, pop: "4,600萬", gni: "12,000", milRank: 28, industry: "黃豆、牛肉、小麥、鋰礦開採" },
+            "BEL": { name: "比利時", region: "歐洲", gdp: 0.6, gdpRank: 24, pop: "1,100萬", gni: "53,000", milRank: 66, industry: "高階化工、生技製藥、鑽石加工、歐洲物流樞紐" },
+            "SWE": { name: "瑞典", region: "歐洲", gdp: 0.6, gdpRank: 25, pop: "1,000萬", gni: "60,000", milRank: 37, industry: "電信通訊(Ericsson)、重型卡車、高階鋼鐵、綠能" },
+            "IRL": { name: "愛爾蘭", region: "歐洲", gdp: 0.5, gdpRank: 26, pop: "520萬", gni: "80,000", milRank: 95, industry: "跨國科技業歐洲總部、生技製藥代工、IT服務" },
+            "THA": { name: "泰國", region: "東南亞", gdp: 0.5, gdpRank: 27, pop: "7,100萬", gni: "7,000", milRank: 25, industry: "汽車代工(東方底特律)、硬碟製造、觀光、農產" },
+            "AUT": { name: "奧地利", region: "歐洲", gdp: 0.5, gdpRank: 28, pop: "900萬", gni: "55,000", milRank: 61, industry: "高階汽車引擎零件、精密金屬加工、觀光" },
+            "ARE": { name: "阿聯酋", region: "中東", gdp: 0.5, gdpRank: 30, pop: "1,000萬", gni: "52,000", milRank: 51, industry: "原油、全球航空轉運(杜拜)、高端觀光、主權投資" }
+        };
+
+        // 合併資料庫 (填補缺失欄位)
+        Object.keys(simplifiedCountries).forEach(key => {
+            if (!database[key]) {
+                database[key] = {
+                    ...simplifiedCountries[key],
+                    wants: ["(深入情報分析中...)"], cantLose: ["(深入情報分析中...)"], has: ["(深入情報分析中...)"],
+                    weakness: ["(深入情報分析中...)"], confidence: ["(深入情報分析中...)"],
+                    allies: [], competitors: []
+                };
+            }
+        });
+
+        // 名稱對應表：GeoJSON 名字 -> ID
+        const nameMapper = {
+            "USA": "USA", "United States of America": "USA", "United States": "USA",
+            "CHN": "CHN", "China": "CHN",
+            "DEU": "DEU", "Germany": "DEU",
+            "JPN": "JPN", "Japan": "JPN",
+            "IND": "IND", "India": "IND",
+            "GBR": "GBR", "United Kingdom": "GBR", "England": "GBR",
+            "FRA": "FRA", "France": "FRA",
+            "BRA": "BRA", "Brazil": "BRA",
+            "ITA": "ITA", "Italy": "ITA",
+            "CAN": "CAN", "Canada": "CAN",
+            "RUS": "RUS", "Russia": "RUS", "Russian Federation": "RUS",
+            "MEX": "MEX", "Mexico": "MEX",
+            "AUS": "AUS", "Australia": "AUS",
+            "KOR": "KOR", "South Korea": "KOR", "Republic of Korea": "KOR",
+            "ESP": "ESP", "Spain": "ESP",
+            "IDN": "IDN", "Indonesia": "IDN",
+            "NLD": "NLD", "Netherlands": "NLD",
+            "TUR": "TUR", "Turkey": "TUR", "Türkiye": "TUR",
+            "SAU": "SAU", "Saudi Arabia": "SAU",
+            "CHE": "CHE", "Switzerland": "CHE",
+            "POL": "POL", "Poland": "POL",
+            "TWN": "TWN", "Taiwan": "TWN",
+            "ARG": "ARG", "Argentina": "ARG",
+            "BEL": "BEL", "Belgium": "BEL",
+            "SWE": "SWE", "Sweden": "SWE",
+            "IRL": "IRL", "Ireland": "IRL",
+            "THA": "THA", "Thailand": "THA",
+            "AUT": "AUT", "Austria": "AUT",
+            "ISR": "ISR", "Israel": "ISR",
+            "ARE": "ARE", "United Arab Emirates": "ARE"
+        };
+    </script>
+
+    <script>
+        const mapContainer = document.getElementById('map');
+        const infoPanel = document.getElementById('info-panel');
+        const panelEmpty = document.getElementById('panel-empty');
+        const panelContent = document.getElementById('panel-content');
+        const closePanelBtn = document.getElementById('close-panel-btn');
+        const tooltip = document.getElementById('tooltip');
+        const loadingScreen = document.getElementById('loading');
+
+        // Modal 相關元素
+        const sandboxModal = document.getElementById('sandbox-modal');
+        const openSandboxBtn = document.getElementById('open-sandbox-btn');
+        const closeSandboxBtn = document.getElementById('close-sandbox-btn');
+        const sandboxBackdrop = document.getElementById('sandbox-backdrop');
+        const sandboxContentBox = document.getElementById('sandbox-content-box');
+        
+        let selectedCountryId = null;
+        let svg, g, path, zoom;
+
+        // 初始化地圖尺寸
+        const width = mapContainer.clientWidth;
+        const height = mapContainer.clientHeight;
+
+        svg = d3.select("#map")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("viewBox", `0 0 ${width} ${height}`);
+
+        g = svg.append("g");
+
+        // 使用 Mercator 投影
+        const projection = d3.geoMercator()
+            .scale(width / 6.5)
+            .translate([width / 2, height / 1.5]);
+
+        path = d3.geoPath().projection(projection);
+
+        // 縮放設定
+        zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        // 讀取 GeoJSON 繪製地圖
+        d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(function(topo) {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+
+            g.selectAll("path")
+                .data(topo.features)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .attr("class", "country-path")
+                .attr("fill", d => {
+                    const id = nameMapper[d.properties.name];
+                    return database[id] ? "#1e293b" : "#0f172a"; // 關注國家亮色，其他暗色
+                })
+                .attr("stroke", "#334155")
+                .attr("stroke-width", "0.5")
+                .attr("id", d => {
+                    const id = nameMapper[d.properties.name];
+                    return id ? `path-${id}` : `path-unknown-${Math.random()}`;
+                })
+                // 互動事件
+                .on("mouseover", function(event, d) {
+                    const id = nameMapper[d.properties.name];
+                    
+                    if (id && id !== selectedCountryId) {
+                        d3.select(this).attr("fill", "#38bdf8").attr("opacity", "0.8");
+                    } else if (!id) {
+                        d3.select(this).attr("fill", "#334155");
+                    }
+                    
+                    tooltip.style.left = (event.pageX) + "px";
+                    tooltip.style.top = (event.pageY - 20) + "px";
+                    tooltip.classList.remove('hidden');
+                    
+                    if (id && database[id]) {
+                        tooltip.innerHTML = `<span class="font-bold">${database[id].name}</span><br>GDP 第 ${database[id].gdpRank} 名`;
+                    } else {
+                        tooltip.innerHTML = d.properties.name;
+                    }
+                })
+                .on("mouseout", function(event, d) {
+                    const id = nameMapper[d.properties.name];
+                    if (id !== selectedCountryId) {
+                        updateMapColors(); // 恢復顏色
+                    }
+                    tooltip.classList.add('hidden');
+                })
+                .on("click", function(event, d) {
+                    const id = nameMapper[d.properties.name];
+                    if (id && database[id]) {
+                        selectCountry(id);
+                        
+                        // 縮放至被點擊的國家
+                        const bounds = path.bounds(d);
+                        const dx = bounds[1][0] - bounds[0][0];
+                        const dy = bounds[1][1] - bounds[0][1];
+                        const x = (bounds[0][0] + bounds[1][0]) / 2;
+                        const y = (bounds[0][1] + bounds[1][1]) / 2;
+                        const scale = Math.max(1, Math.min(4, 0.9 / Math.max(dx / width, dy / height)));
+                        // 稍微向左偏，讓出右側面板空間
+                        const translate = [width / 2 - scale * x - (window.innerWidth > 768 ? width*0.1 : 0), height / 2 - scale * y];
+
+                        svg.transition().duration(750).call(
+                            zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+                        );
+                    }
+                });
+                
+                // 確保台灣有標示出來 (某些地圖圖資問題)
+                updateMapColors();
+        });
+
+        function updateMapColors() {
+            g.selectAll("path").attr("fill", d => {
+                const id = nameMapper[d.properties.name];
+                if (!id) return "#0f172a";
+                if (id === selectedCountryId) return "#38bdf8"; // 點中目標藍色
+                
+                if (selectedCountryId && database[selectedCountryId]) {
+                    const data = database[selectedCountryId];
+                    if (data.allies.includes(id)) return "#064e3b"; // 盟友深綠
+                    if (data.competitors.includes(id)) return "#451a03"; // 競爭對手深橘
+                }
+                
+                return "#1e293b"; // 預設深灰
+            }).attr("stroke", d => {
+                const id = nameMapper[d.properties.name];
+                if (id === selectedCountryId) return "#fff";
+                
+                if (selectedCountryId && database[selectedCountryId]) {
+                    const data = database[selectedCountryId];
+                    if (data.allies.includes(id)) return "#34d399"; // 盟友亮綠邊
+                    if (data.competitors.includes(id)) return "#fb923c"; // 競爭者亮橘邊
+                }
+                return "#334155";
+            }).attr("stroke-width", d => {
+                const id = nameMapper[d.properties.name];
+                if (id === selectedCountryId || (selectedCountryId && database[selectedCountryId] && (database[selectedCountryId].allies.includes(id) || database[selectedCountryId].competitors.includes(id)))) {
+                    return "1.5";
+                }
+                return "0.5";
+            }).attr("opacity", d => {
+                const id = nameMapper[d.properties.name];
+                // 當有選擇國家時，降低不相關國家的透明度
+                if (selectedCountryId && id !== selectedCountryId && 
+                   (!database[selectedCountryId].allies.includes(id)) && 
+                   (!database[selectedCountryId].competitors.includes(id))) {
+                    return "0.4";
+                }
+                return "1";
+            });
+        }
+
+        function selectCountry(id) {
+            selectedCountryId = id;
+            updateMapColors();
+            updatePanel(id);
+            
+            // 手機版彈出面板
+            if (window.innerWidth < 768) {
+                infoPanel.classList.remove('translate-y-full');
+            }
+        }
+
+        function updatePanel(id) {
+            const data = database[id];
+            panelEmpty.classList.add('hidden');
+            panelContent.classList.remove('hidden');
+            panelContent.classList.add('flex');
+
+            document.getElementById('country-name').textContent = data.name;
+            document.getElementById('country-region').textContent = data.region;
+            document.getElementById('country-gdp-rank').innerHTML = `<i class="fa-solid fa-trophy mr-1"></i>世界第 ${data.gdpRank}`;
+            
+            document.getElementById('val-gdp').textContent = data.gdp;
+            document.getElementById('val-pop').textContent = data.pop;
+            document.getElementById('val-gni').textContent = data.gni;
+            document.getElementById('val-mil').textContent = data.milRank;
+            document.getElementById('val-industry').textContent = data.industry;
+
+            const updateList = (elementId, array) => {
+                const el = document.getElementById(elementId);
+                el.innerHTML = '';
+                array.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    el.appendChild(li);
+                });
+            };
+
+            updateList('list-wants', data.wants);
+            updateList('list-cant-lose', data.cantLose);
+            updateList('list-has', data.has);
+            updateList('list-weakness', data.weakness);
+            updateList('list-confidence', data.confidence);
+
+            // 更新關係網標籤按鈕
+            const updateTags = (elementId, array, colorClass) => {
+                const el = document.getElementById(elementId);
+                el.innerHTML = '';
+                if(array.length === 0) { el.innerHTML = '<span class="text-xs text-slate-500">無顯著數據</span>'; return; }
+                
+                array.forEach(relId => {
+                    if(!database[relId]) return;
+                    const btn = document.createElement('button');
+                    btn.className = `px-2 py-1 rounded text-xs font-semibold cursor-pointer transition ${colorClass}`;
+                    btn.innerHTML = database[relId].name;
+                    btn.onclick = () => {
+                        // 模擬點擊地圖上的該國家
+                        const targetPath = document.getElementById(`path-${relId}`);
+                        if(targetPath) {
+                            d3.select(targetPath).dispatch('click');
+                        } else {
+                            selectCountry(relId); // 如果沒找到路徑也直接切換資料
+                        }
+                        // 將面板捲動到頂部
+                        panelContent.querySelector('.overflow-y-auto').scrollTop = 0;
+                    };
+                    el.appendChild(btn);
+                });
+            };
+
+            updateTags('tags-allies', data.allies, 'bg-[#064e3b] text-[#34d399] hover:bg-[#34d399] hover:text-[#064e3b] border border-[#34d399]/50');
+            updateTags('tags-competitors', data.competitors, 'bg-[#451a03] text-[#fb923c] hover:bg-[#fb923c] hover:text-[#451a03] border border-[#fb923c]/50');
+        }
+
+        // 重置視角
+        document.getElementById('reset-view').addEventListener('click', () => {
+            svg.transition().duration(750).call(
+                zoom.transform, 
+                d3.zoomIdentity, 
+                d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
+            );
+            selectedCountryId = null;
+            updateMapColors();
+            panelEmpty.classList.remove('hidden');
+            panelContent.classList.add('hidden');
+            panelContent.classList.remove('flex');
+            if (window.innerWidth < 768) infoPanel.classList.add('translate-y-full');
+        });
+
+        // 手機版關閉面板
+        closePanelBtn.addEventListener('click', () => {
+            infoPanel.classList.add('translate-y-full');
+            selectedCountryId = null;
+            updateMapColors();
+        });
+
+        // 打開沙盤 Modal
+        openSandboxBtn.addEventListener('click', () => {
+            sandboxModal.classList.remove('hidden');
+            sandboxModal.classList.add('flex');
+            setTimeout(() => {
+                sandboxModal.classList.remove('opacity-0');
+                sandboxModal.classList.add('opacity-100');
+                sandboxContentBox.classList.remove('scale-95');
+                sandboxContentBox.classList.add('scale-100');
+            }, 10);
+        });
+
+        // 關閉沙盤 Modal
+        function closeSandbox() {
+            sandboxModal.classList.remove('opacity-100');
+            sandboxModal.classList.add('opacity-0');
+            sandboxContentBox.classList.remove('scale-100');
+            sandboxContentBox.classList.add('scale-95');
+            setTimeout(() => {
+                sandboxModal.classList.add('hidden');
+                sandboxModal.classList.remove('flex');
+            }, 300);
+        }
+
+        closeSandboxBtn.addEventListener('click', closeSandbox);
+        sandboxBackdrop.addEventListener('click', closeSandbox);
+
+        // 多頁籤切換邏輯
         const tabBtns = document.querySelectorAll('.sandbox-tab-btn');
         const tabContents = document.querySelectorAll('.sandbox-tab-content');
 
@@ -177,27 +933,31 @@
             btn.addEventListener('click', () => {
                 // 1. 移除所有按鈕的啟用狀態 (文字變灰、底線透明)
                 tabBtns.forEach(b => {
-                    b.classList.remove('text-brand-accent', 'border-brand-accent');
+                    b.classList.remove('text-brand-accent', 'border-brand-accent', 'active');
                     b.classList.add('text-slate-400', 'border-transparent');
                 });
                 
-                // 2. 隱藏所有內容區塊
+                // 2. 隱藏所有內容區塊 (移除動畫 class 確保下次點擊還能觸發)
                 tabContents.forEach(c => {
                     c.classList.remove('block');
                     c.classList.add('hidden');
                 });
 
-                // 3. 啟用被點擊的按鈕 (文字變亮、底線亮色)
-                btn.classList.add('text-brand-accent', 'border-brand-accent');
+                // 3. 啟用被點擊的按鈕 (針對不同主題給予不同高亮色)
+                btn.classList.add('active');
                 btn.classList.remove('text-slate-400', 'border-transparent');
                 
-                // 4. 顯示對應的內容區塊
                 const targetId = btn.getAttribute('data-target');
+                if(targetId === 'tab-chips') btn.classList.add('text-brand-accent', 'border-brand-accent');
+                if(targetId === 'tab-energy') btn.classList.add('text-brand-success', 'border-brand-success');
+                if(targetId === 'tab-finance') btn.classList.add('text-brand-warning', 'border-brand-warning');
+                
+                // 4. 顯示對應的內容區塊
                 const targetContent = document.getElementById(targetId);
                 targetContent.classList.remove('hidden');
                 targetContent.classList.add('block');
             });
         });
-        
-        // ... (保留你原有的 Modal 開關邏輯 openSandboxBtn.addEventListener...) ...
     </script>
+</body>
+</html>
